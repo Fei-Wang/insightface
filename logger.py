@@ -8,6 +8,9 @@ logger.setLevel(logging.DEBUG)
 # 创建handler，用于写入日志文件
 logfile = '~/logs/insightface/recognition.log'
 logfile = os.path.expanduser(logfile)
+logdir = os.path.dirname(logfile)
+if not os.path.exists(logdir):
+    os.makedirs(logdir)
 fh = logging.FileHandler(logfile, mode='w')
 fh.setLevel(logging.DEBUG)
 

@@ -1,0 +1,23 @@
+# model params
+
+
+image_size: 112
+
+
+
+# hyper params
+
+
+
+# run params
+
+batch_size: 2
+epoch_num: 20
+
+
+
+# paths
+
+train_dir: 'D:/resource/insightface/293_camera_align'
+valid_dir:
+test_dir:
