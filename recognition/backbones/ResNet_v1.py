@@ -19,17 +19,17 @@ class BasicBlock(tf.keras.layers.Layer):
         self.conv3 = tf.keras.layers.Conv2D(filters, (1, 1), padding='same', strides=strides)
         self.bn3 = tf.keras.layers.BatchNormalization()
 
-    def call(self, inputs):
+    def call(self, inputs, training=False):
         x = self.conv1(inputs)
-        x = self.bn1(x)
+        x = self.bn1(x, training=training)
         x = self.relu(x)
         x = self.conv2(x)
-        x = self.bn2(x)
+        x = self.bn2(x, training=training)
         if x.shape == inputs.shape:
             res = inputs
         else:
             res = self.conv3(inputs)
-            res = self.bn3(res)
+            res = self.bn3(res, training=training)
         x += res
         x = self.relu(x)
         return x
@@ -49,20 +49,20 @@ class Bottleneck(tf.keras.layers.Layer):
         self.conv4 = tf.keras.layers.Conv2D(filters * 4, (1, 1), padding='same', strides=strides)
         self.bn4 = tf.keras.layers.BatchNormalization()
 
-    def call(self, inputs):
+    def call(self, inputs, training=False):
         x = self.conv1(inputs)
-        x = self.bn1(x)
+        x = self.bn1(x, training=training)
         x = self.relu(x)
         x = self.conv2(x)
-        x = self.bn2(x)
+        x = self.bn2(x, training=training)
         x = self.relu(x)
         x = self.conv3(x)
-        x = self.bn3(x)
+        x = self.bn3(x, training=training)
         if x.shape == inputs.shape:
             res = inputs
         else:
             res = self.conv4(inputs)
-            res = self.bn4(res)
+            res = self.bn4(res, training=training)
         x += res
         x = self.relu(x)
         return x
@@ -84,13 +84,13 @@ class ResNet_v1(tf.keras.Model):
         self.dense = tf.keras.layers.Dense(num_classes)
         self.softmax = tf.keras.layers.Softmax()
 
-    def call(self, inputs, training=None, mask=None):
+    def call(self, inputs, training=False, mask=None):
         x = self.conv(inputs)
-        x = self.bn(x)
+        x = self.bn(x, training=training)
         x = self.relu(x)
         x = self.maxpool(x)
         for block in self.blocks:
-            x = block(x)
+            x = block(x, training=training)
         x = self.globalpool(x)
         x = self.dense(x)
         x = self.softmax(x)
@@ -151,7 +151,7 @@ def main():
     # model = tf.keras.applications.ResNet50(include_top=False, input_shape=(224, 224, 3))
     # model.summary()
     inputs = tf.keras.Input(shape=(112, 112, 3))
-    outputs = ResNet_v1_50(num_classes=10)(inputs)
+    outputs = ResNet_v1_50(num_classes=10)(inputs, training=False)
     model = tf.keras.Model(inputs, outputs)
     model.summary()
     # tf.keras.utils.plot_model(model, 'my_first_model.png', show_shapes=True)
