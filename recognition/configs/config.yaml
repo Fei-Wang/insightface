@@ -2,6 +2,7 @@
 
 
 image_size: 112
+embedding_size: 4
 
 
 
@@ -18,6 +19,6 @@ epoch_num: 20
 
 # paths
 
-train_dir: 'D:/resource/insightface/293_camera_align'
+train_dir: '~/data/insightface/293_camera_align'
 valid_dir:
 test_dir:

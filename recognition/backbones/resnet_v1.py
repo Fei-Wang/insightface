@@ -69,7 +69,7 @@ class Bottleneck(tf.keras.layers.Layer):
 
 
 class ResNet_v1(tf.keras.Model):
-    def __init__(self, Block=Bottleneck, layers=(3, 4, 6, 3), num_classes=10):
+    def __init__(self, Block=Bottleneck, layers=(3, 4, 6, 3), embedding_size=512):
         super(ResNet_v1, self).__init__()
         self.conv = tf.keras.layers.Conv2D(64, (7, 7), strides=(2, 2), padding='same')
         self.bn = tf.keras.layers.BatchNormalization()
@@ -81,8 +81,7 @@ class ResNet_v1(tf.keras.Model):
         self.blocks4 = [Block(filters=512, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[3])]
         self.blocks = self.blocks1 + self.blocks2 + self.blocks3 + self.blocks4
         self.globalpool = tf.keras.layers.GlobalAveragePooling2D()
-        self.dense = tf.keras.layers.Dense(num_classes)
-        self.softmax = tf.keras.layers.Softmax()
+        self.dense = tf.keras.layers.Dense(embedding_size)
 
     def call(self, inputs, training=False, mask=None):
         x = self.conv(inputs)
@@ -93,34 +92,33 @@ class ResNet_v1(tf.keras.Model):
             x = block(x, training=training)
         x = self.globalpool(x)
         x = self.dense(x)
-        x = self.softmax(x)
 
         return x
 
 
 class ResNet_v1_18(ResNet_v1):
-    def __init__(self, num_classes=10):
-        super(ResNet_v1_18, self).__init__(Block=BasicBlock, layers=(2, 2, 2, 2), num_classes=num_classes)
+    def __init__(self, embedding_size=512):
+        super(ResNet_v1_18, self).__init__(Block=BasicBlock, layers=(2, 2, 2, 2), embedding_size=embedding_size)
 
 
 class ResNet_v1_34(ResNet_v1):
-    def __init__(self, num_classes=10):
-        super(ResNet_v1_34, self).__init__(Block=BasicBlock, layers=(3, 4, 6, 3), num_classes=num_classes)
+    def __init__(self, embedding_size=512):
+        super(ResNet_v1_34, self).__init__(Block=BasicBlock, layers=(3, 4, 6, 3), embedding_size=embedding_size)
 
 
 class ResNet_v1_50(ResNet_v1):
-    def __init__(self, num_classes=10):
-        super(ResNet_v1_50, self).__init__(Block=Bottleneck, layers=(3, 4, 6, 3), num_classes=num_classes)
+    def __init__(self, embedding_size=512):
+        super(ResNet_v1_50, self).__init__(Block=Bottleneck, layers=(3, 4, 6, 3), embedding_size=embedding_size)
 
 
 class ResNet_v1_101(ResNet_v1):
-    def __init__(self, num_classes=10):
-        super(ResNet_v1_101, self).__init__(Block=Bottleneck, layers=(3, 4, 23, 3), num_classes=num_classes)
+    def __init__(self, embedding_size=512):
+        super(ResNet_v1_101, self).__init__(Block=Bottleneck, layers=(3, 4, 23, 3), embedding_size=embedding_size)
 
 
 class ResNet_v1_152(ResNet_v1):
-    def __init__(self, num_classes=10):
-        super(ResNet_v1_152, self).__init__(Block=Bottleneck, layers=(3, 8, 36, 3), num_classes=num_classes)
+    def __init__(self, embedding_size=512):
+        super(ResNet_v1_152, self).__init__(Block=Bottleneck, layers=(3, 8, 36, 3), embedding_size=embedding_size)
 
 
 def parse_args(argv):
@@ -138,27 +136,27 @@ def main():
     args = parse_args(sys.argv[1:])
     logger.info(args)
     sys.path.append("..")
-    # from data.generate_data import GenerateData
-    # import yaml
-    # with open(args.config_path) as cfg:
-    #     config = yaml.load(cfg, Loader=yaml.FullLoader)
-    # gd = GenerateData(config)
-    # train_data = gd.get_train_data()
+    from data.generate_data import GenerateData
+    import yaml
+    with open(args.config_path) as cfg:
+        config = yaml.load(cfg, Loader=yaml.FullLoader)
+    gd = GenerateData(config)
+    train_data = gd.get_train_data()
 
-    # model = ResNet_v1_50(num_classes=10)
+    model = ResNet_v1_50(embedding_size=config['embedding_size'])
     # model = tf.keras.applications.ResNet50(input_shape=(112, 112, 3), include_top=False)
     # model = tf.keras.applications.ResNet50(include_top=True, weights='imagenet')
     # model = tf.keras.applications.ResNet50(include_top=False, input_shape=(224, 224, 3))
     # model.summary()
-    inputs = tf.keras.Input(shape=(112, 112, 3))
-    outputs = ResNet_v1_50(num_classes=10)(inputs, training=False)
-    model = tf.keras.Model(inputs, outputs)
-    model.summary()
+    # inputs = tf.keras.Input(shape=(112, 112, 3))
+    # outputs = ResNet_v1_50(embedding_size=512)(inputs, training=False)
+    # model = tf.keras.Model(inputs, outputs)
+    # model.summary()
     # tf.keras.utils.plot_model(model, 'my_first_model.png', show_shapes=True)
 
-    # for img, _ in train_data.take(1):
-    #     y = model(img)
-    #     print(img.shape, img[0].shape, y.shape, y)
+    for img, _ in train_data.take(1):
+        y = model(img, training=False)
+        print(img.shape, img[0].shape, y.shape, y)
 
 
 if __name__ == '__main__':
