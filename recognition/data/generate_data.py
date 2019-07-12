@@ -16,6 +16,7 @@ class GenerateData:
 
     @staticmethod
     def __get_path_label(image_dir):
+        image_dir = os.path.expanduser(image_dir)
         ids = list(os.listdir(image_dir))
         ids.sort()
         cat_num = len(ids)
