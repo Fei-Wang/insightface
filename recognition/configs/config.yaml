@@ -1,18 +1,22 @@
 # model params
-
+backbone:
 
 image_size: 112
-embedding_size: 4
+embedding_size: 512
 
 
 
 # hyper params
 
+logits_scale: 64.0
+logits_margin1: 0.5   # m1控制sphereface
+logits_margin2: 0.5   # m2控制cosineface
+logits_margin3: 0.5   # m3控制arcface
 
 
 # run params
 
-batch_size: 2
+batch_size: 16
 epoch_num: 20
 
 

@@ -2,37 +2,30 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import tensorflow as tf
 
-from logger import logger
-
 tf.enable_eager_execution()
 
 
 def softmax_loss(dense, labels):
-    logits = tf.keras.layers.Softmax()(dense)
-    # ce or softmax_with_ce
-    print(dense, logits, labels)
-    return 0
+    cce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)  # do softmax
+    loss = cce(labels, dense)
+
+    return loss
 
 
-class SphereFace(tf.keras.layers.Layer):
+def arcface_loss(x, normx_cos, labels, m1, m2, m3, s):
+    norm_x = tf.norm(x, axis=1, keepdims=True)
+    cos_theta = normx_cos / norm_x
+    theta = tf.acos(cos_theta)
+    mask = tf.one_hot(labels, depth=normx_cos.shape[-1])
+    cond = tf.cast(mask, dtype=tf.bool)
+    m1_theta_plus_m3 = tf.where(cond, theta * m1 + m3, theta)
+    cos_m1_theta_plus_m3 = tf.cos(m1_theta_plus_m3)
+    prelogits = tf.where(cond, cos_m1_theta_plus_m3 - m2, cos_m1_theta_plus_m3) * s
 
-    def __init__(self, classes=1000):
-        super(SphereFace, self).__init__()
-        self.classes = classes
+    cce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)  # do softmax
+    loss = cce(labels, prelogits)
 
-    def build(self, input_shape):
-        self.w = self.add_weight(name='norm_dense_w', shape=(input_shape[-1], self.classes),
-                                 initializer='random_normal', trainable=True)
-
-    def call(self, inputs):
-        norm_w = tf.nn.l2_normalize(self.w, axis=0)
-        x = tf.matmul(inputs, norm_w)
-        # x2 = tf.matmul(inputs, self.w)
-        # norm1 = tf.norm(self.w, axis=0, keepdims=True)
-        #
-        # # print(self.w, norm)
-        # x3 = x2 / norm1
-        return x
+    return loss
 
 
 def parse_args(argv):
@@ -48,7 +41,7 @@ def parse_args(argv):
 def main():
     import sys
     args = parse_args(sys.argv[1:])
-    logger.info(args)
+    # logger.info(args)
     sys.path.append("..")
     from data.generate_data import GenerateData
     from backbones.resnet_v1 import ResNet_v1_50
@@ -57,17 +50,29 @@ def main():
     with open(args.config_path) as cfg:
         config = yaml.load(cfg, Loader=yaml.FullLoader)
     gd = GenerateData(config)
-    train_data = gd.get_train_data()
+    train_data, classes = gd.get_train_data()
 
-    model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'], classes=3)
+    model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'], classes=classes)
 
     for img, label in train_data.take(1):
         prelogits, dense, norm_dense = model(img, training=False)
         sm_loss = softmax_loss(dense, label)
+        norm_sm_loss = softmax_loss(norm_dense, label)
+
+        arc_loss = arcface_loss(prelogits, norm_dense, label, config['logits_margin1'], config['logits_margin2'],
+                                config['logits_margin3'], config['logits_scale'])
+
         # embeddings = tf.nn.l2_normalize(prelogits, axis=1)
-        print(sm_loss)
+        # tf.reduce_mean(tf.abs(real_image - cycled_image))
+        # tf.add_n()
+        print(sm_loss, norm_sm_loss, arc_loss)
 
 
 if __name__ == '__main__':
-    logger.info("hello, insightface/recognition")
+    # log_cfg_path = '../../logging.yaml'
+    # with open(log_cfg_path, 'r') as f:
+    #     dict_cfg = yaml.load(f, Loader=yaml.FullLoader)
+    # logging.config.dictConfig(dict_cfg)
+    # logger = logging.getLogger("mylogger")
+    # logger.info("hello, insightface/recognition")
     main()

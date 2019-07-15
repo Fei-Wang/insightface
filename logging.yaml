@@ -1,0 +1,33 @@
+version: 1
+#disable_existing_loggers: False
+formatters:
+  simple:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: simple
+    stream: ext://sys.stdout
+  console_err:
+    class: logging.StreamHandler
+    level: ERROR
+    formatter: simple
+    stream: ext://sys.stderr
+  info_file_handler:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: simple
+    filename: C:/Users/kc/logs/insightface/recognition.log
+    maxBytes: 1000000
+    backupCount: 10
+    encoding: "utf8"
+loggers:
+  mylogger:
+    level: DEBUG
+    handlers: [console, info_file_handler]
+    propagate: no
+root:
+  level: DEBUG
+  handlers: [console]
+  propagate: yes

@@ -2,8 +2,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import tensorflow as tf
 
-from logger import logger
-
 tf.enable_eager_execution()
 
 
@@ -134,14 +132,14 @@ def parse_args(argv):
 def main():
     import sys
     args = parse_args(sys.argv[1:])
-    logger.info(args)
+    # logger.info(args)
     sys.path.append("..")
     from data.generate_data import GenerateData
     import yaml
     with open(args.config_path) as cfg:
         config = yaml.load(cfg, Loader=yaml.FullLoader)
     gd = GenerateData(config)
-    train_data = gd.get_train_data()
+    train_data, classes = gd.get_train_data()
 
     model = ResNet_v1_50(embedding_size=config['embedding_size'])
     # model = tf.keras.applications.ResNet50(input_shape=(112, 112, 3), include_top=False)
@@ -160,5 +158,10 @@ def main():
 
 
 if __name__ == '__main__':
-    logger.info("hello, insightface/recognition")
+    # log_cfg_path = '../../logging.yaml'
+    # with open(log_cfg_path, 'r') as f:
+    #     dict_cfg = yaml.load(f, Loader=yaml.FullLoader)
+    # logging.config.dictConfig(dict_cfg)
+    # logger = logging.getLogger("mylogger")
+    # logger.info("hello, insightface/recognition")
     main()
