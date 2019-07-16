@@ -33,7 +33,7 @@ class Trainer:
         self.s = config['logits_scale']
         self.train_data = train_data
         self.thresh = config['thresh']
-        self.optimizer = tf.train.AdamOptimizer(0.0001)
+        self.optimizer = tf.keras.optimizers.Adam(0.001)
 
         ckpt_dir = os.path.expanduser(config['ckpt_dir'])
         self.ckpt = tf.train.Checkpoint(model=self.model, optimizer=self.optimizer)
