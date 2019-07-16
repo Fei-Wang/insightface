@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import argparse
+import os
 import sys
 import time
 
@@ -32,6 +33,18 @@ class Trainer:
         self.s = config['logits_scale']
         self.train_data = train_data
         self.thresh = config['thresh']
+        self.optimizer = tf.train.AdamOptimizer(0.0001)
+
+        ckpt_dir = os.path.expanduser(config['ckpt_dir'])
+        self.ckpt = tf.train.Checkpoint(model=self.model, optimizer=self.optimizer)
+        self.ckpt_manager = tf.train.CheckpointManager(self.ckpt, ckpt_dir, max_to_keep=5, checkpoint_name='mymodel')
+
+        if self.ckpt_manager.latest_checkpoint:
+            self.ckpt.restore(self.ckpt_manager.latest_checkpoint)
+            print("Restored from {}".format(self.ckpt_manager.latest_checkpoint))
+        else:
+            print("Initializing from scratch.")
+
         self.vd = None
         if val_data:
             self.vd = Valid_Data(model, val_data)
@@ -44,9 +57,8 @@ class Trainer:
             norm_sm_loss = softmax_loss(norm_dense, label)
             arc_loss = arcface_loss(prelogits, norm_dense, label, self.m1, self.m2, self.m3, self.s)
         gradients = tape.gradient(arc_loss, self.model.trainable_variables)
-        optimizer = tf.train.AdamOptimizer()
         # Apply the gradients to the optimizer
-        optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+        self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
 
         return arc_loss
 
@@ -57,62 +69,16 @@ class Trainer:
             for step, (input_image, target) in enumerate(self.train_data):
                 loss = self.__train_step(input_image, target)
                 print('epoch: {}, step: {}, loss = {}'.format(epoch, step, loss))
-            # valid
+                # valid
                 if self.vd is not None:
                     acc, p, r, fpr = self.vd.get_metric(self.thresh)
                     print('epoch: {}, acc: {:.3f}, p: {:.3f}, r=tpr: {:.3f}, fpr: {:.3f}'.format(epoch, acc, p, r, fpr))
 
-            # checkpoint_path = "./checkpoints/train"
-            #
-            # ckpt = tf.train.Checkpoint(generator_g=generator_g,
-            #                            generator_f=generator_f,
-            #                            discriminator_x=discriminator_x,
-            #                            discriminator_y=discriminator_y,
-            #                            generator_g_optimizer=generator_g_optimizer,
-            #                            generator_f_optimizer=generator_f_optimizer,
-            #                            discriminator_x_optimizer=discriminator_x_optimizer,
-            #                            discriminator_y_optimizer=discriminator_y_optimizer)
-            #
-            # ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
-            #
-            # # if a checkpoint exists, restore the latest checkpoint.
-            # if ckpt_manager.latest_checkpoint:
-            #     ckpt.restore(ckpt_manager.latest_checkpoint)
-            #     print('Latest checkpoint restored!!')
-            #
-            # if (epoch + 1) % 5 == 0:
-            #     ckpt_save_path = ckpt_manager.save()
-            #     print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
-            #                                                         ckpt_save_path))
-            #
-            #
-            #
-            # checkpoint_dir = './training_checkpoints'
-            # checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
-            # checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
-            #                                  discriminator_optimizer=discriminator_optimizer,
-            #                                  generator=generator,
-            #                                  discriminator=discriminator)
-            #
-            # # Save the model every 15 epochs
-            # if (epoch + 1) % 15 == 0:
-            #     checkpoint.save(file_prefix=checkpoint_prefix)
-            #
-            # checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
-            #
-            # checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
-            # model.save_weights('path_to_my_weights', save_format='tf')
-            #
-            # model.load_weights(checkpoint_path)
-            # model.load_weights(tf.train.latest_checkpoint(checkpoint_dir))
-            # saving (checkpoint) the model every 20 epochs
-            # if (epoch + 1) % 20 == 0:
-            #     checkpoint.save(file_prefix=checkpoint_prefix)
-            #     ckpt_save_path = ckpt_manager.save()
-            #     print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
-            #                                                         ckpt_save_path))
+                # if epoch % 5 == 0:
+                save_path = self.ckpt_manager.save()
+                print('Saving checkpoint for epoch {} at {}'.format(epoch, save_path))
 
-            print('Time taken for epoch {} is {} sec\n'.format(epoch + 1, time.time() - start))
+            print('Time taken for epoch {} is {} sec\n'.format(epoch, time.time() - start))
 
 
 def parse_args(argv):

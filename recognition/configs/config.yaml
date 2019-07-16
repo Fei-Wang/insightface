@@ -27,3 +27,4 @@ thresh: 0.2
 train_dir: '~/data/insightface/train'
 valid_dir: '~/data/insightface/val'
 test_dir:
+ckpt_dir: '~/models/insightface/'
