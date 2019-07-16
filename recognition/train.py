@@ -46,7 +46,7 @@ class Trainer:
             print("Initializing from scratch.")
 
         self.vd = None
-        if val_data:
+        if val_data is not None:
             self.vd = Valid_Data(model, val_data)
 
     # @tf.function
