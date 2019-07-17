@@ -63,27 +63,24 @@ class Trainer:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         train_log_dir = os.path.join(summary_dir, current_time, 'train')
         valid_log_dir = os.path.join(summary_dir, current_time, 'valid')
-        graph_log_dir = os.path.join(summary_dir, current_time, 'graph')
+        # self.graph_log_dir = os.path.join(summary_dir, current_time, 'graph')
+
         if platform.system() == 'Windows':
             train_log_dir = train_log_dir.replace('/', '\\')
             valid_log_dir = valid_log_dir.replace('/', '\\')
-            graph_log_dir = graph_log_dir.replace('/', '\\')
-        else:
-            train_log_dir = train_log_dir.replace('\\', '/')
-            valid_log_dir = valid_log_dir.replace('\\', '/')
-            graph_log_dir = graph_log_dir.replace('\\', '/')
+            # self.graph_log_dir = self.graph_log_dir.replace('/', '\\')
 
         # self.train_summary_writer = tf.summary.create_file_writer(train_log_dir)
         # self.valid_summary_writer = tf.summary.create_file_writer(valid_log_dir)
         self.train_summary_writer = tf.compat.v2.summary.create_file_writer(train_log_dir)
         self.valid_summary_writer = tf.compat.v2.summary.create_file_writer(valid_log_dir)
 
-        graph_writer = tf.compat.v2.summary.create_file_writer(graph_log_dir)
-        tf.compat.v2.summary.trace_on(graph=True, profiler=True)
-        with graph_writer.as_default():
-            tf.compat.v2.summary.trace_export(name="graph_trace", step=0, profiler_outdir=graph_log_dir)
+        # self.graph_writer = tf.compat.v2.summary.create_file_writer(self.graph_log_dir)
+        # tf.compat.v2.summary.trace_on(graph=True, profiler=True)
+        # with graph_writer.as_default():
+        #     tf.compat.v2.summary.trace_export(name="graph_trace", step=0, profiler_outdir=graph_log_dir)
 
-    # @tf.function
+    @tf.function
     def __train_step(self, img, label):
         with tf.GradientTape(persistent=False) as tape:
             prelogits, dense, norm_dense = self.model(img, training=True)
