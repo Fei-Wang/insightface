@@ -142,6 +142,8 @@ def main():
     train_data, classes = gd.get_train_data()
 
     model = ResNet_v1_50(embedding_size=config['embedding_size'])
+    model.build((None, 112, 112, 3))
+    model.summary()
     # model = tf.keras.applications.ResNet50(input_shape=(112, 112, 3), include_top=False)
     # model = tf.keras.applications.ResNet50(include_top=True, weights='imagenet')
     # model = tf.keras.applications.ResNet50(include_top=False, input_shape=(224, 224, 3))
@@ -152,9 +154,9 @@ def main():
     # model.summary()
     # tf.keras.utils.plot_model(model, 'my_first_model.png', show_shapes=True)
 
-    for img, _ in train_data.take(1):
-        y = model(img, training=False)
-        print(img.shape, img[0].shape, y.shape, y)
+    # for img, _ in train_data.take(1):
+    #     y = model(img, training=False)
+    #     print(img.shape, img[0].shape, y.shape, y)
 
 
 if __name__ == '__main__':

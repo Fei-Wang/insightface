@@ -61,11 +61,12 @@ def main():
 
     # model = ResNet_v1_50(embedding_size=config['embedding_size'])
     model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'], classes=classes)
-
-    for img, _ in train_data.take(1):
-        y = model(img, training=False)
-        # print(img.shape, img[0].shape, y.shape, y)
-        print(y)
+    model.build((None, 112, 112, 3))
+    model.summary()
+    # for img, _ in train_data.take(1):
+    #     y = model(img, training=False)
+    #     # print(img.shape, img[0].shape, y.shape, y)
+    #     print(y)
 
 
 if __name__ == '__main__':

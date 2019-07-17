@@ -1,7 +1,9 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import argparse
+import datetime
 import os
+import platform
 import sys
 import time
 
@@ -13,6 +15,12 @@ from data.generate_data import GenerateData
 from losses.logit_loss import softmax_loss, arcface_loss
 from models.models import MyModel
 from valid import Valid_Data
+
+# os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+# config = tf.ConfigProto()
+# config.gpu_options.allow_growth = True
+# config.gpu_options.per_process_gpu_memory_fraction = 0.4
+# tf.enable_eager_execution(config=config)
 
 tf.enable_eager_execution()
 
@@ -42,12 +50,38 @@ class Trainer:
         if self.ckpt_manager.latest_checkpoint:
             self.ckpt.restore(self.ckpt_manager.latest_checkpoint)
             print("Restored from {}".format(self.ckpt_manager.latest_checkpoint))
+            # for layer in tf.train.list_variables(self.ckpt_manager.latest_checkpoint):
+            #     print(layer)
         else:
             print("Initializing from scratch.")
 
         self.vd = None
         if val_data is not None:
             self.vd = Valid_Data(model, val_data)
+
+        summary_dir = os.path.expanduser(config['summary_dir'])
+        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        train_log_dir = os.path.join(summary_dir, current_time, 'train')
+        valid_log_dir = os.path.join(summary_dir, current_time, 'valid')
+        graph_log_dir = os.path.join(summary_dir, current_time, 'graph')
+        if platform.system() == 'Windows':
+            train_log_dir = train_log_dir.replace('/', '\\')
+            valid_log_dir = valid_log_dir.replace('/', '\\')
+            graph_log_dir = graph_log_dir.replace('/', '\\')
+        else:
+            train_log_dir = train_log_dir.replace('\\', '/')
+            valid_log_dir = valid_log_dir.replace('\\', '/')
+            graph_log_dir = graph_log_dir.replace('\\', '/')
+
+        # self.train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+        # self.valid_summary_writer = tf.summary.create_file_writer(valid_log_dir)
+        self.train_summary_writer = tf.compat.v2.summary.create_file_writer(train_log_dir)
+        self.valid_summary_writer = tf.compat.v2.summary.create_file_writer(valid_log_dir)
+
+        graph_writer = tf.compat.v2.summary.create_file_writer(graph_log_dir)
+        tf.compat.v2.summary.trace_on(graph=True, profiler=True)
+        with graph_writer.as_default():
+            tf.compat.v2.summary.trace_export(name="graph_trace", step=0, profiler_outdir=graph_log_dir)
 
     # @tf.function
     def __train_step(self, img, label):
@@ -68,12 +102,22 @@ class Trainer:
 
             for step, (input_image, target) in enumerate(self.train_data):
                 loss = self.__train_step(input_image, target)
+
+                with self.train_summary_writer.as_default():
+                    tf.compat.v2.summary.scalar('loss', loss, step=step)
                 print('epoch: {}, step: {}, loss = {}'.format(epoch, step, loss))
+
                 # valid
                 if self.vd is not None:
                     acc, p, r, fpr = self.vd.get_metric(self.thresh)
+                    with self.valid_summary_writer.as_default():
+                        tf.compat.v2.summary.scalar('acc', acc, step=step)
+                        tf.compat.v2.summary.scalar('p', p, step=step)
+                        tf.compat.v2.summary.scalar('r=tpr', r, step=step)
+                        tf.compat.v2.summary.scalar('fpr', fpr, step=step)
                     print('epoch: {}, acc: {:.3f}, p: {:.3f}, r=tpr: {:.3f}, fpr: {:.3f}'.format(epoch, acc, p, r, fpr))
 
+                # ckpt
                 # if epoch % 5 == 0:
                 save_path = self.ckpt_manager.save()
                 print('Saving checkpoint for epoch {} at {}'.format(epoch, save_path))
