@@ -57,16 +57,25 @@ class Valid_Data:
                 fn += 1
             else:
                 tn += 1
-        # 防止分母为零，影响不大
         acc = (tp + tn) / len(predict)
-        p = tp / (tp + fp + 1e-6)
-        r = tp / (tp + fn + 1e-6)
-        fpr = fp / (fp + tn + 1e-6)
+        # 防止分母为零
+        at_least = 1
+        p = tp / max(tp + fp, at_least)
+        r = tp / max(tp + fn, at_least)
+        fpr = fp / max(fp + tn, at_least)
         return acc, p, r, fpr
 
-    def get_metric(self, thresh):
+    def __cal_metric_fpr(self, sim, label, below_fpr=0.001):
+        for thresh in np.linspace(-1, 1, 100):
+            acc, p, r, fpr = self.__cal_metric(sim, label, thresh)
+            if fpr <= below_fpr:
+                return acc, p, r, thresh
+
+    def get_metric(self, thresh=0.2, below_fpr=0.001):
         sim, label = self.__get_sim_label()
-        return self.__cal_metric(sim, label, thresh)
+        acc, p, r, fpr = self.__cal_metric(sim, label, thresh)
+        acc_fpr, p_fpr, r_fpr, thresh_fpr = self.__cal_metric_fpr(sim, label, below_fpr)
+        return acc, p, r, fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr
 
     def draw_curve(self):
         P = []
@@ -74,7 +83,7 @@ class Valid_Data:
         TPR = []
         FPR = []
         sim, label = self.__get_sim_label()
-        for thresh in np.arange(0, 1, 0.01):
+        for thresh in np.linspace(-1, 1, 100):
             acc, p, r, fpr = self.__cal_metric(sim, label, thresh)
             P.append(p)
             R.append(r)
@@ -111,11 +120,17 @@ def main():
         config = yaml.load(cfg, Loader=yaml.FullLoader)
     gd = GenerateData(config)
     valid_data = gd.get_val_data(config['valid_num'])
-    model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'], classes=12)
+    model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'])
+    import os
+    ckpt_dir = os.path.expanduser(config['ckpt_dir'])
+    ckpt = tf.train.Checkpoint(backbone=model.backbone)
+    ckpt.restore(tf.train.latest_checkpoint(ckpt_dir)).expect_partial()
+    print("Restored from {}".format(tf.train.latest_checkpoint(ckpt_dir)))
+
     vd = Valid_Data(model, valid_data)
     acc, p, r, fpr = vd.get_metric(0.995)
-    # print(p, r, tpr, fpr)
-    # vd.draw_curve()
+    print(acc, p, r, fpr)
+    vd.draw_curve()
 
 
 if __name__ == '__main__':

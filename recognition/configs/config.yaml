@@ -22,6 +22,7 @@ epoch_num: 20
 valid_num: 256          # half pos and half neg
 valid_batch_size: 16
 thresh: 0.2
+below_fpr: 0.99          # fpr should below this
 # paths
 
 train_dir: '~/data/insightface/train'
