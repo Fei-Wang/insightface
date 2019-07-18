@@ -67,7 +67,7 @@ class Bottleneck(tf.keras.layers.Layer):
 
 
 class ResNet_v1(tf.keras.Model):
-    def __init__(self, Block=Bottleneck, layers=(3, 4, 6, 3), embedding_size=512):
+    def __init__(self, Block=Bottleneck, layers=(3, 4, 6, 3), include_top=True, embedding_size=512):
         super(ResNet_v1, self).__init__()
         self.conv = tf.keras.layers.Conv2D(64, (7, 7), strides=(2, 2), padding='same')
         self.bn = tf.keras.layers.BatchNormalization()
@@ -79,7 +79,9 @@ class ResNet_v1(tf.keras.Model):
         self.blocks4 = [Block(filters=512, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[3])]
         self.blocks = self.blocks1 + self.blocks2 + self.blocks3 + self.blocks4
         self.globalpool = tf.keras.layers.GlobalAveragePooling2D()
-        self.dense = tf.keras.layers.Dense(embedding_size)
+        self.dense = None
+        if include_top:
+            self.dense = tf.keras.layers.Dense(embedding_size)
 
     def call(self, inputs, training=False, mask=None):
         x = self.conv(inputs)
@@ -89,34 +91,40 @@ class ResNet_v1(tf.keras.Model):
         for block in self.blocks:
             x = block(x, training=training)
         x = self.globalpool(x)
-        x = self.dense(x)
+        if self.dense is not None:
+            x = self.dense(x)
 
         return x
 
 
 class ResNet_v1_18(ResNet_v1):
-    def __init__(self, embedding_size=512):
-        super(ResNet_v1_18, self).__init__(Block=BasicBlock, layers=(2, 2, 2, 2), embedding_size=embedding_size)
+    def __init__(self, include_top=True, embedding_size=512):
+        super(ResNet_v1_18, self).__init__(Block=BasicBlock, layers=(2, 2, 2, 2), include_top=include_top,
+                                           embedding_size=embedding_size)
 
 
 class ResNet_v1_34(ResNet_v1):
-    def __init__(self, embedding_size=512):
-        super(ResNet_v1_34, self).__init__(Block=BasicBlock, layers=(3, 4, 6, 3), embedding_size=embedding_size)
+    def __init__(self, include_top=True, embedding_size=512):
+        super(ResNet_v1_34, self).__init__(Block=BasicBlock, layers=(3, 4, 6, 3), include_top=include_top,
+                                           embedding_size=embedding_size)
 
 
 class ResNet_v1_50(ResNet_v1):
-    def __init__(self, embedding_size=512):
-        super(ResNet_v1_50, self).__init__(Block=Bottleneck, layers=(3, 4, 6, 3), embedding_size=embedding_size)
+    def __init__(self, include_top=True, embedding_size=512):
+        super(ResNet_v1_50, self).__init__(Block=Bottleneck, layers=(3, 4, 6, 3), include_top=include_top,
+                                           embedding_size=embedding_size)
 
 
 class ResNet_v1_101(ResNet_v1):
-    def __init__(self, embedding_size=512):
-        super(ResNet_v1_101, self).__init__(Block=Bottleneck, layers=(3, 4, 23, 3), embedding_size=embedding_size)
+    def __init__(self, include_top=True, embedding_size=512):
+        super(ResNet_v1_101, self).__init__(Block=Bottleneck, layers=(3, 4, 23, 3), include_top=include_top,
+                                            embedding_size=embedding_size)
 
 
 class ResNet_v1_152(ResNet_v1):
-    def __init__(self, embedding_size=512):
-        super(ResNet_v1_152, self).__init__(Block=Bottleneck, layers=(3, 8, 36, 3), embedding_size=embedding_size)
+    def __init__(self, include_top=True, embedding_size=512):
+        super(ResNet_v1_152, self).__init__(Block=Bottleneck, layers=(3, 8, 36, 3), include_top=include_top,
+                                            embedding_size=embedding_size)
 
 
 def parse_args(argv):

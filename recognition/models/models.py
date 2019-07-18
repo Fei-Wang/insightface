@@ -15,7 +15,7 @@ class NormDense(tf.keras.layers.Layer):
         self.w = self.add_weight(name='norm_dense_w', shape=(input_shape[-1], self.classes),
                                  initializer='random_normal', trainable=True)
 
-    def call(self, inputs):
+    def call(self, inputs, **kwargs):
         norm_w = tf.nn.l2_normalize(self.w, axis=0)
         x = tf.matmul(inputs, norm_w)
 
@@ -25,7 +25,7 @@ class NormDense(tf.keras.layers.Layer):
 class MyModel(tf.keras.Model):
     def __init__(self, backbone, embedding_size=512, classes=1000):
         super(MyModel, self).__init__()
-        self.backbone = backbone(embedding_size=embedding_size)
+        self.backbone = backbone(include_top=True, embedding_size=embedding_size)
         self.dense = tf.keras.layers.Dense(classes)
         self.norm_dense = NormDense(classes)
 
