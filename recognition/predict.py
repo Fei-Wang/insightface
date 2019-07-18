@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import argparse
+import os
 import sys
 
 import tensorflow as tf
@@ -38,9 +39,22 @@ def main():
     gd = GenerateData(config)
     train_data, _ = gd.get_train_data()
     model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'])
+
+    ckpt_dir = os.path.expanduser(config['ckpt_dir'])
+    ckpt = tf.train.Checkpoint(backbone=model.backbone)
+    ckpt.restore(tf.train.latest_checkpoint(ckpt_dir)).expect_partial()
+    print("Restored from {}".format(tf.train.latest_checkpoint(ckpt_dir)))
+    # for layer in tf.train.list_variables(tf.train.latest_checkpoint(ckpt_dir)):
+    #     print(layer)
+
     for img, _ in train_data.take(1):
         embs = get_embeddings(model, img)
-        print(embs)
+        for i in range(embs.shape[0]):
+            for j in range(embs.shape[0]):
+                val = 0
+                for k in range(512):
+                    val += embs[i][k] * embs[j][k]
+                print(i, j, val)
 
 
 if __name__ == '__main__':
