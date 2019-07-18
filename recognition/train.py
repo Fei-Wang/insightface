@@ -12,7 +12,7 @@ import yaml
 
 from backbones.resnet_v1 import ResNet_v1_50
 from data.generate_data import GenerateData
-from losses.logit_loss import softmax_loss, arcface_loss
+from losses.logit_loss import softmax_loss
 from models.models import MyModel
 from valid import Valid_Data
 
@@ -79,22 +79,22 @@ class Trainer:
         # with graph_writer.as_default():
         #     tf.compat.v2.summary.trace_export(name="graph_trace", step=0, profiler_outdir=graph_log_dir)
 
-    # @tf.function
+    @tf.function
     def __train_step(self, img, label):
         with tf.GradientTape(persistent=False) as tape:
             prelogits, dense, norm_dense = self.model(img, training=True)
-            embs = tf.nn.l2_normalize(prelogits, axis=-1)
-            for i in range(embs.shape[0]):
-                for j in range(embs.shape[0]):
-                    val = 0
-                    for k in range(512):
-                        val += embs[i][k] * embs[j][k]
-                    print(i, j, val)
-            print(tf.argmax(dense, axis=-1))
-            print(label)
+            # embs = tf.nn.l2_normalize(prelogits, axis=-1)
+            # for i in range(embs.shape[0]):
+            #     for j in range(embs.shape[0]):
+            #         val = 0
+            #         for k in range(512):
+            #             val += embs[i][k] * embs[j][k]
+            #         print(i, j, val)
+            # print(tf.argmax(dense, axis=-1))
+            # print(label)
             sm_loss = softmax_loss(dense, label)
-            norm_sm_loss = softmax_loss(norm_dense, label)
-            arc_loss = arcface_loss(prelogits, norm_dense, label, self.m1, self.m2, self.m3, self.s)
+            # norm_sm_loss = softmax_loss(norm_dense, label)
+            # arc_loss = arcface_loss(prelogits, norm_dense, label, self.m1, self.m2, self.m3, self.s)
             loss = sm_loss
         gradients = tape.gradient(loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
@@ -112,27 +112,27 @@ class Trainer:
                     tf.compat.v2.summary.scalar('loss', loss, step=step)
                 print('epoch: {}, step: {}, loss = {}'.format(epoch, step, loss))
 
-                # valid
-                if self.vd is not None:
-                    acc, p, r, fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr = self.vd.get_metric(self.thresh, self.below_fpr)
+            # valid
+            if self.vd is not None:
+                acc, p, r, fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr = self.vd.get_metric(self.thresh, self.below_fpr)
 
-                    with self.valid_summary_writer.as_default():
-                        tf.compat.v2.summary.scalar('acc', acc, step=step)
-                        tf.compat.v2.summary.scalar('p', p, step=step)
-                        tf.compat.v2.summary.scalar('r=tpr', r, step=step)
-                        tf.compat.v2.summary.scalar('fpr', fpr, step=step)
-                        tf.compat.v2.summary.scalar('acc_fpr', acc_fpr, step=step)
-                        tf.compat.v2.summary.scalar('p_fpr', p_fpr, step=step)
-                        tf.compat.v2.summary.scalar('r=tpr_fpr', r_fpr, step=step)
-                        tf.compat.v2.summary.scalar('thresh_fpr', thresh_fpr, step=step)
-                    print('epoch: {}, acc: {:.3f}, p: {:.3f}, r=tpr: {:.3f}, fpr: {:.3f} \n'
-                          'fix fpr <= {}, acc: {:.3f}, p: {:.3f}, r=tpr: {:.3f}, thresh: {:.3f}'
-                          .format(epoch, acc, p, r, fpr, self.below_fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr))
+                with self.valid_summary_writer.as_default():
+                    tf.compat.v2.summary.scalar('acc', acc, step=epoch)
+                    tf.compat.v2.summary.scalar('p', p, step=epoch)
+                    tf.compat.v2.summary.scalar('r=tpr', r, step=epoch)
+                    tf.compat.v2.summary.scalar('fpr', fpr, step=epoch)
+                    tf.compat.v2.summary.scalar('acc_fpr', acc_fpr, step=epoch)
+                    tf.compat.v2.summary.scalar('p_fpr', p_fpr, step=epoch)
+                    tf.compat.v2.summary.scalar('r=tpr_fpr', r_fpr, step=epoch)
+                    tf.compat.v2.summary.scalar('thresh_fpr', thresh_fpr, step=epoch)
+                print('epoch: {}, acc: {:.3f}, p: {:.3f}, r=tpr: {:.3f}, fpr: {:.3f} \n'
+                      'fix fpr <= {}, acc: {:.3f}, p: {:.3f}, r=tpr: {:.3f}, thresh: {:.3f}'
+                      .format(epoch, acc, p, r, fpr, self.below_fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr))
 
-                # ckpt
-                # if epoch % 5 == 0:
-                save_path = self.ckpt_manager.save()
-                print('Saving checkpoint for epoch {} at {}'.format(epoch, save_path))
+            # ckpt
+            # if epoch % 5 == 0:
+            save_path = self.ckpt_manager.save()
+            print('Saving checkpoint for epoch {} at {}'.format(epoch, save_path))
 
             print('Time taken for epoch {} is {} sec\n'.format(epoch, time.time() - start))
 
