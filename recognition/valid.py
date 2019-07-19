@@ -128,8 +128,8 @@ def main():
     print("Restored from {}".format(tf.train.latest_checkpoint(ckpt_dir)))
 
     vd = Valid_Data(model, valid_data)
-    acc, p, r, fpr = vd.get_metric(0.995)
-    print(acc, p, r, fpr)
+    acc, p, r, fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr = vd.get_metric(0.2, 0.1)
+    print(acc, p, r, fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr)
     vd.draw_curve()
 
 
