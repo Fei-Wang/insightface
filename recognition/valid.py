@@ -22,16 +22,16 @@ class Valid_Data:
         self.data = data
 
     @staticmethod
-    def __cal_cos_sim(emb1, emb2):
+    def _cal_cos_sim(emb1, emb2):
         return tf.reduce_sum(emb1 * emb2, axis=-1)
 
-    def __get_sim_label(self):
+    def _get_sim_label(self):
         sims = None
         labels = None
         for image1, image2, label in self.data:
             emb1 = get_embeddings(self.model, image1)
             emb2 = get_embeddings(self.model, image2)
-            sim = self.__cal_cos_sim(emb1, emb2)
+            sim = self._cal_cos_sim(emb1, emb2)
             if sims is None:
                 sims = sim
             else:
@@ -45,7 +45,7 @@ class Valid_Data:
         return sims, labels
 
     @staticmethod
-    def __cal_metric(sim, label, thresh):
+    def _cal_metric(sim, label, thresh):
         tp = tn = fp = fn = 0
         predict = tf.greater_equal(sim, thresh)
         for i in range(len(predict)):
@@ -65,16 +65,16 @@ class Valid_Data:
         fpr = fp / max(fp + tn, at_least)
         return acc, p, r, fpr
 
-    def __cal_metric_fpr(self, sim, label, below_fpr=0.001):
+    def _cal_metric_fpr(self, sim, label, below_fpr=0.001):
         for thresh in np.linspace(-1, 1, 100):
-            acc, p, r, fpr = self.__cal_metric(sim, label, thresh)
+            acc, p, r, fpr = self._cal_metric(sim, label, thresh)
             if fpr <= below_fpr:
                 return acc, p, r, thresh
 
     def get_metric(self, thresh=0.2, below_fpr=0.001):
-        sim, label = self.__get_sim_label()
-        acc, p, r, fpr = self.__cal_metric(sim, label, thresh)
-        acc_fpr, p_fpr, r_fpr, thresh_fpr = self.__cal_metric_fpr(sim, label, below_fpr)
+        sim, label = self._get_sim_label()
+        acc, p, r, fpr = self._cal_metric(sim, label, thresh)
+        acc_fpr, p_fpr, r_fpr, thresh_fpr = self._cal_metric_fpr(sim, label, below_fpr)
         return acc, p, r, fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr
 
     def draw_curve(self):
@@ -82,9 +82,9 @@ class Valid_Data:
         R = []
         TPR = []
         FPR = []
-        sim, label = self.__get_sim_label()
+        sim, label = self._get_sim_label()
         for thresh in np.linspace(-1, 1, 100):
-            acc, p, r, fpr = self.__cal_metric(sim, label, thresh)
+            acc, p, r, fpr = self._cal_metric(sim, label, thresh)
             P.append(p)
             R.append(r)
             TPR.append(r)

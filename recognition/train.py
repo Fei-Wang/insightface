@@ -100,7 +100,7 @@ class Trainer:
         #     tf.compat.v2.summary.trace_export(name="graph_trace", step=0, profiler_outdir=graph_log_dir)
 
     @tf.function
-    def __train_step(self, img, label):
+    def _train_step(self, img, label):
         with tf.GradientTape(persistent=False) as tape:
             prelogits, dense, norm_dense = self.model(img, training=True)
             # embs = tf.nn.l2_normalize(prelogits, axis=-1)
@@ -126,7 +126,7 @@ class Trainer:
             start = time.time()
 
             for step, (input_image, target) in enumerate(self.train_data):
-                loss = self.__train_step(input_image, target)
+                loss = self._train_step(input_image, target)
 
                 with self.train_summary_writer.as_default():
                     tf.compat.v2.summary.scalar('loss', loss, step=step)
