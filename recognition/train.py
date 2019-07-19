@@ -12,7 +12,7 @@ import yaml
 
 from backbones.resnet_v1 import ResNet_v1_50
 from data.generate_data import GenerateData
-from losses.logit_loss import softmax_loss
+from losses.logit_loss import arcface_loss
 from models.models import MyModel
 from valid import Valid_Data
 
@@ -42,7 +42,27 @@ class Trainer:
         self.train_data = train_data
         self.thresh = config['thresh']
         self.below_fpr = config['below_fpr']
-        self.optimizer = tf.keras.optimizers.Adam(0.001)
+        self.learning_rate = config['learning_rate']
+
+        optimizer = config['optimizer']
+        if optimizer == 'ADADELTA':
+            self.optimizer = tf.keras.optimizers.Adadelta(self.learning_rate)
+        elif optimizer == 'ADAGRAD':
+            self.optimizer = tf.keras.optimizers.Adagrad(self.learning_rate)
+        elif optimizer == 'ADAM':
+            self.optimizer = tf.keras.optimizers.Adam(self.learning_rate)
+        elif optimizer == 'ADAMAX':
+            self.optimizer = tf.keras.optimizers.Adamax(self.learning_rate)
+        elif optimizer == 'FTRL':
+            self.optimizer = tf.keras.optimizers.Ftrl(self.learning_rate)
+        elif optimizer == 'NADAM':
+            self.optimizer = tf.keras.optimizers.Nadam(self.learning_rate)
+        elif optimizer == 'RMSPROP':
+            self.optimizer = tf.keras.optimizers.RMSprop(self.learning_rate)
+        elif optimizer == 'SGD':
+            self.optimizer = tf.keras.optimizers.SGD(self.learning_rate)
+        else:
+            raise ValueError('Invalid optimization algorithm')
 
         ckpt_dir = os.path.expanduser(config['ckpt_dir'])
         self.ckpt = tf.train.Checkpoint(backbone=self.model.backbone, model=self.model, optimizer=self.optimizer)
@@ -92,10 +112,10 @@ class Trainer:
             #         print(i, j, val)
             # print(tf.argmax(dense, axis=-1))
             # print(label)
-            sm_loss = softmax_loss(dense, label)
+            # sm_loss = softmax_loss(dense, label)
             # norm_sm_loss = softmax_loss(norm_dense, label)
-            # arc_loss = arcface_loss(prelogits, norm_dense, label, self.m1, self.m2, self.m3, self.s)
-            loss = sm_loss
+            arc_loss = arcface_loss(prelogits, norm_dense, label, self.m1, self.m2, self.m3, self.s)
+            loss = arc_loss
         gradients = tape.gradient(loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
 

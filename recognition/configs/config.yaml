@@ -7,11 +7,13 @@ embedding_size: 512
 
 
 # hyper params
+optimizer: 'ADAM'    # ADADELTA, ADAGRAD, ADAM, ADAMAX, FTRL, NADAM, RMSPROP, SGD
+learning_rate: 0.01
 
 logits_scale: 64.0
-logits_margin1: 0.5   # m1控制sphereface
-logits_margin2: 0.5   # m2控制cosineface
-logits_margin3: 0.5   # m3控制arcface
+logits_margin1: 1.0   # m1控制sphereface should >= 1
+logits_margin2: 0.2   # m2控制cosineface should >= 0
+logits_margin3: 0.3   # m3控制arcface    should >= 0
 
 
 # run params
@@ -26,7 +28,7 @@ below_fpr: 0.99          # fpr should below this
 # paths
 
 train_dir: '~/data/insightface/train'
-valid_dir: '~/data/insightface/train'
+valid_dir: '~/data/insightface/val'
 test_dir:
 ckpt_dir: '~/models/insightface/'
 summary_dir: '~/logs/insightface/summary'
