@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import math
 import tensorflow as tf
 
 tf.enable_eager_execution()
@@ -17,7 +18,9 @@ def arcface_loss(x, normx_cos, labels, m1, m2, m3, s):
     cos_theta = normx_cos / norm_x
     theta = tf.acos(cos_theta)
     mask = tf.one_hot(labels, depth=normx_cos.shape[-1])
-    cond = tf.cast(mask, dtype=tf.bool)
+    zeros = tf.zeros_like(mask)
+    cond = tf.where(tf.greater(theta * m1 + m3, math.pi), zeros, mask)
+    cond = tf.cast(cond, dtype=tf.bool)
     m1_theta_plus_m3 = tf.where(cond, theta * m1 + m3, theta)
     cos_m1_theta_plus_m3 = tf.cos(m1_theta_plus_m3)
     prelogits = tf.where(cond, cos_m1_theta_plus_m3 - m2, cos_m1_theta_plus_m3) * s
