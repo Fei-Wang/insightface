@@ -12,8 +12,9 @@ import yaml
 
 from backbones.resnet_v1 import ResNet_v1_50
 from data.generate_data import GenerateData
-from losses.logit_loss import arcface_loss
+from losses.loss import arcface_loss, triplet_loss
 from models.models import MyModel
+from predict import get_embeddings
 from valid import Valid_Data
 
 # os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
@@ -32,17 +33,22 @@ tf.enable_eager_execution()
 # logger = logging.getLogger("mylogger")
 
 class Trainer:
-    def __init__(self, model, config, train_data, val_data=None):
-        self.model = model
+    def __init__(self, config):
+        self.gd = GenerateData(config)
+
+        self.train_data, cat_num = self.gd.get_train_data()
+        valid_data = self.gd.get_val_data(config['valid_num'])
+        self.model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'], classes=cat_num)
         self.epoch_num = config['epoch_num']
         self.m1 = config['logits_margin1']
         self.m2 = config['logits_margin2']
         self.m3 = config['logits_margin3']
         self.s = config['logits_scale']
-        self.train_data = train_data
+        self.alpha = config['alpha']
         self.thresh = config['thresh']
         self.below_fpr = config['below_fpr']
         self.learning_rate = config['learning_rate']
+        self.loss_type = config['loss_type']
 
         optimizer = config['optimizer']
         if optimizer == 'ADADELTA':
@@ -74,9 +80,7 @@ class Trainer:
         else:
             print("Initializing from scratch.")
 
-        self.vd = None
-        if val_data is not None:
-            self.vd = Valid_Data(model, val_data)
+        self.vd = Valid_Data(self.model, valid_data)
 
         summary_dir = os.path.expanduser(config['summary_dir'])
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -121,33 +125,56 @@ class Trainer:
 
         return loss
 
+    @tf.function
+    def _train_triplet_step(self, anchor, pos, neg):
+        with tf.GradientTape(persistent=False) as tape:
+            anchor_emb = get_embeddings(self.model, anchor)
+            pos_emb = get_embeddings(self.model, pos)
+            neg_emb = get_embeddings(self.model, neg)
+
+            loss = triplet_loss(anchor_emb, pos_emb, neg_emb, self.alpha)
+
+        gradients = tape.gradient(loss, self.model.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+
+        return loss
+
     def train(self):
         for epoch in range(self.epoch_num):
             start = time.time()
-
-            for step, (input_image, target) in enumerate(self.train_data):
-                loss = self._train_step(input_image, target)
-
-                with self.train_summary_writer.as_default():
-                    tf.compat.v2.summary.scalar('loss', loss, step=step)
-                print('epoch: {}, step: {}, loss = {}'.format(epoch, step, loss))
+            # triplet loss
+            if self.loss_type == 'triplet':
+                train_data = self.gd.get_train_triplets_data(self.model)
+                for step, (anchor, pos, neg) in enumerate(train_data):
+                    loss = self._train_triplet_step(anchor, pos, neg)
+                    with self.train_summary_writer.as_default():
+                        tf.compat.v2.summary.scalar('loss', loss, step=step)
+                    print('epoch: {}, step: {}, loss = {}'.format(epoch, step, loss))
+            elif self.loss_type == 'logit':
+                # logit loss
+                for step, (input_image, target) in enumerate(self.train_data):
+                    loss = self._train_step(input_image, target)
+                    with self.train_summary_writer.as_default():
+                        tf.compat.v2.summary.scalar('loss', loss, step=step)
+                    print('epoch: {}, step: {}, loss = {}'.format(epoch, step, loss))
+            else:
+                raise ValueError('Invalid loss type')
 
             # valid
-            if self.vd is not None:
-                acc, p, r, fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr = self.vd.get_metric(self.thresh, self.below_fpr)
+            acc, p, r, fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr = self.vd.get_metric(self.thresh, self.below_fpr)
 
-                with self.valid_summary_writer.as_default():
-                    tf.compat.v2.summary.scalar('acc', acc, step=epoch)
-                    tf.compat.v2.summary.scalar('p', p, step=epoch)
-                    tf.compat.v2.summary.scalar('r=tpr', r, step=epoch)
-                    tf.compat.v2.summary.scalar('fpr', fpr, step=epoch)
-                    tf.compat.v2.summary.scalar('acc_fpr', acc_fpr, step=epoch)
-                    tf.compat.v2.summary.scalar('p_fpr', p_fpr, step=epoch)
-                    tf.compat.v2.summary.scalar('r=tpr_fpr', r_fpr, step=epoch)
-                    tf.compat.v2.summary.scalar('thresh_fpr', thresh_fpr, step=epoch)
-                print('epoch: {}, acc: {:.3f}, p: {:.3f}, r=tpr: {:.3f}, fpr: {:.3f} \n'
-                      'fix fpr <= {}, acc: {:.3f}, p: {:.3f}, r=tpr: {:.3f}, thresh: {:.3f}'
-                      .format(epoch, acc, p, r, fpr, self.below_fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr))
+            with self.valid_summary_writer.as_default():
+                tf.compat.v2.summary.scalar('acc', acc, step=epoch)
+                tf.compat.v2.summary.scalar('p', p, step=epoch)
+                tf.compat.v2.summary.scalar('r=tpr', r, step=epoch)
+                tf.compat.v2.summary.scalar('fpr', fpr, step=epoch)
+                tf.compat.v2.summary.scalar('acc_fpr', acc_fpr, step=epoch)
+                tf.compat.v2.summary.scalar('p_fpr', p_fpr, step=epoch)
+                tf.compat.v2.summary.scalar('r=tpr_fpr', r_fpr, step=epoch)
+                tf.compat.v2.summary.scalar('thresh_fpr', thresh_fpr, step=epoch)
+            print('epoch: {}, acc: {:.3f}, p: {:.3f}, r=tpr: {:.3f}, fpr: {:.3f} \n'
+                  'fix fpr <= {}, acc: {:.3f}, p: {:.3f}, r=tpr: {:.3f}, thresh: {:.3f}'
+                  .format(epoch, acc, p, r, fpr, self.below_fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr))
 
             # ckpt
             # if epoch % 5 == 0:
@@ -172,12 +199,8 @@ def main():
 
     with open(args.config_path) as cfg:
         config = yaml.load(cfg, Loader=yaml.FullLoader)
-    gd = GenerateData(config)
-    train_data, cat_num = gd.get_train_data()
-    valid_data = gd.get_val_data(config['valid_num'])
-    model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'], classes=cat_num)
 
-    t = Trainer(model, config, train_data, valid_data)
+    t = Trainer(config)
     t.train()
 
 

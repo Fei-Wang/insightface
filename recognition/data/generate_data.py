@@ -5,6 +5,8 @@ import os
 import numpy as np
 import tensorflow as tf
 
+from predict import get_embeddings
+
 tf.enable_eager_execution()
 
 
@@ -12,6 +14,8 @@ class GenerateData:
 
     def __init__(self, config=None):
         self.config = config
+        self.trian_paths, self.trian_labels = self._get_path_label(self.config['train_dir'])
+        self.valid_paths, _ = self._get_path_label(self.config['valid_dir'])
 
     @staticmethod
     def _get_path_label(image_dir):
@@ -50,6 +54,13 @@ class GenerateData:
 
         return image, label
 
+    def _preprocess_train_triplet(self, image_path1, image_path2, image_path3):
+        image1 = self._preprocess(image_path1, trianing=True)
+        image2 = self._preprocess(image_path2, trianing=True)
+        image3 = self._preprocess(image_path3, trianing=True)
+
+        return image1, image2, image3
+
     def _preprocess_val(self, image_path1, image_path2, label):
         image1 = self._preprocess(image_path1, trianing=False)
         image2 = self._preprocess(image_path2, trianing=False)
@@ -57,7 +68,7 @@ class GenerateData:
         return image1, image2, label
 
     def get_train_data(self):
-        paths, labels = self._get_path_label(self.config['train_dir'])
+        paths, labels = self.trian_paths, self.trian_labels
         cat_num = len(paths)
         paths = [path for cls in paths for path in cls]
         labels = [label for cls in labels for label in cls]
@@ -75,8 +86,69 @@ class GenerateData:
 
         return train_dataset, cat_num
 
+    def get_train_triplets_data(self, model):
+        paths, labels = self.trian_paths, self.trian_labels
+        begins = []  # include
+        ends = []  # not include
+        length = 0
+        for l in labels:
+            for _ in l:
+                begins.append(length)
+                ends.append(length + len(l))
+            length += len(l)
+
+        paths = [path for cls in paths for path in cls]
+        labels = [label for cls in labels for label in cls]
+        assert (len(paths) == len(labels))
+
+        train_dataset = tf.data.Dataset.from_tensor_slices((paths, labels))
+        train_dataset = train_dataset.map(self._preprocess_train,
+                                          num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().batch(
+            self.config['batch_size'])
+        embs = None
+        labels = None
+        for img, label in train_dataset:
+            emb = get_embeddings(model, img)
+            if embs is None:
+                embs = emb
+                labels = label
+            else:
+                embs = tf.concat([embs, emb], axis=0)
+                labels = tf.concat([labels, label], axis=0)
+
+        num_triplets = 0
+        anchor = []
+        pos = []
+        neg = []
+        for a_idx in range(labels.shape[0]):
+            begin = begins[a_idx]  # include
+            end = ends[a_idx]  # not include
+            neg_dists = np.sum(np.square(embs - embs[a_idx]), axis=1)
+            # neg_dists[begin:end] = np.NaN
+            neg_dists[begin:end] = np.Inf
+            for p_idx in range(a_idx + 1, end):
+                pos_dist = np.sum(np.square(embs[p_idx] - embs[a_idx]))
+                all_neg = np.where(neg_dists - pos_dist < self.config['alpha'])[0]
+                num_neg = all_neg.shape[0]
+                if num_neg > 0:
+                    rnd_idx = np.random.randint(num_neg)
+                    n_idx = all_neg[rnd_idx]
+
+                    anchor.append(paths[a_idx])
+                    pos.append(paths[p_idx])
+                    neg.append(paths[n_idx])
+
+                    num_triplets += 1
+        print('triplets num is {}'.format(num_triplets))
+        train_dataset = tf.data.Dataset.from_tensor_slices((anchor, pos, neg))
+        train_dataset = train_dataset.map(self._preprocess_train_triplet,
+                                          num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(
+            num_triplets).batch(self.config['batch_size'])
+
+        return train_dataset
+
     def get_val_data(self, num):
-        paths, _ = self._get_path_label(self.config['valid_dir'])
+        paths = self.valid_paths
         paths1 = []
         paths2 = []
         labels = []
@@ -133,19 +205,31 @@ def main():
     with open(args.config_path) as cfg:
         config = yaml.load(cfg, Loader=yaml.FullLoader)
     gd = GenerateData(config)
-    train_data, classes = gd.get_train_data()
+    # train_data, classes = gd.get_train_data()
     import matplotlib.pyplot as plt
     # for img, _ in train_data.take(1):
     #     plt.imshow(img[0])
     #     plt.show()
 
-    val_data = gd.get_val_data(3)
-    for img1, img2, label in val_data:
-        print(label)
+    # val_data = gd.get_val_data(3)
+    # for img1, img2, label in val_data:
+    #     print(label)
+    #     plt.imshow(img1[0])
+    #     plt.show()
+    #
+    #     plt.imshow(img2[0])
+    #     plt.show()
+    from backbones.resnet_v1 import ResNet_v1_50
+    from models.models import MyModel
+    model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'])
+    triplet_data = gd.get_train_triplets_data(model)
+    for img1, img2, img3 in triplet_data.take(1):
         plt.imshow(img1[0])
         plt.show()
 
         plt.imshow(img2[0])
+        plt.show()
+        plt.imshow(img3[0])
         plt.show()
 
 

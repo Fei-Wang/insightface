@@ -31,6 +31,15 @@ def arcface_loss(x, normx_cos, labels, m1, m2, m3, s):
     return loss
 
 
+def triplet_loss(anchor_emb, pos_emb, neg_emb, alpha):
+    pos_dist = tf.reduce_sum(tf.square(tf.subtract(anchor_emb, pos_emb)), axis=1)
+    neg_dist = tf.reduce_sum(tf.square(tf.subtract(anchor_emb, neg_emb)), axis=1)
+
+    basic_loss = tf.add(tf.subtract(pos_dist, neg_dist), alpha)
+    loss = tf.reduce_mean(tf.maximum(basic_loss, 0.0), axis=0)
+    return loss
+
+
 def parse_args(argv):
     import argparse
     parser = argparse.ArgumentParser(description='define losses.')

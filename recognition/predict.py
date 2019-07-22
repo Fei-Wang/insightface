@@ -8,7 +8,6 @@ import tensorflow as tf
 import yaml
 
 from backbones.resnet_v1 import ResNet_v1_50
-from data.generate_data import GenerateData
 from models.models import MyModel
 
 tf.enable_eager_execution()
@@ -33,6 +32,7 @@ def parse_args(argv):
 def main():
     args = parse_args(sys.argv[1:])
     # logger.info(args)
+    from data.generate_data import GenerateData
 
     with open(args.config_path) as cfg:
         config = yaml.load(cfg, Loader=yaml.FullLoader)
