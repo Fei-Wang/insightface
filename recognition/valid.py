@@ -58,18 +58,20 @@ class Valid_Data:
             else:
                 tn += 1
         acc = (tp + tn) / len(predict)
-        # 防止分母为零
-        at_least = 1
-        p = tp / max(tp + fp, at_least)
-        r = tp / max(tp + fn, at_least)
-        fpr = fp / max(fp + tn, at_least)
+        p = 0 if tp + fp == 0 else tp / (tp + fp)
+        r = 0 if tp + fn == 0 else tp / (tp + fn)
+        fpr = 0 if fp + tn == 0 else fp / (fp + tn)
         return acc, p, r, fpr
 
     def _cal_metric_fpr(self, sim, label, below_fpr=0.001):
-        for thresh in np.linspace(-1, 1, 100):
+        acc = p = r = thresh = 0
+        for t in np.linspace(-1, 1, 100):
+            thresh = t
             acc, p, r, fpr = self._cal_metric(sim, label, thresh)
             if fpr <= below_fpr:
-                return acc, p, r, thresh
+                break
+
+        return acc, p, r, thresh
 
     def get_metric(self, thresh=0.2, below_fpr=0.001):
         sim, label = self._get_sim_label()

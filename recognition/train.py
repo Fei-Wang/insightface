@@ -144,12 +144,14 @@ class Trainer:
             start = time.time()
             # triplet loss
             if self.loss_type == 'triplet':
-                train_data = self.gd.get_train_triplets_data(self.model)
-                for step, (anchor, pos, neg) in enumerate(train_data):
-                    loss = self._train_triplet_step(anchor, pos, neg)
-                    with self.train_summary_writer.as_default():
-                        tf.compat.v2.summary.scalar('loss', loss, step=step)
-                    print('epoch: {}, step: {}, loss = {}'.format(epoch, step, loss))
+                train_data, num_triplets = self.gd.get_train_triplets_data(self.model)
+                print('triplets num is {}'.format(num_triplets))
+                if num_triplets > 0:
+                    for step, (anchor, pos, neg) in enumerate(train_data):
+                        loss = self._train_triplet_step(anchor, pos, neg)
+                        with self.train_summary_writer.as_default():
+                            tf.compat.v2.summary.scalar('loss', loss, step=step)
+                        print('epoch: {}, step: {}, loss = {}'.format(epoch, step, loss))
             elif self.loss_type == 'logit':
                 # logit loss
                 for step, (input_image, target) in enumerate(self.train_data):

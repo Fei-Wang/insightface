@@ -139,13 +139,13 @@ class GenerateData:
                     neg.append(paths[n_idx])
 
                     num_triplets += 1
-        print('triplets num is {}'.format(num_triplets))
-        train_dataset = tf.data.Dataset.from_tensor_slices((anchor, pos, neg))
-        train_dataset = train_dataset.map(self._preprocess_train_triplet,
-                                          num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(
-            num_triplets).batch(self.config['batch_size'])
+        if num_triplets > 0:
+            train_dataset = tf.data.Dataset.from_tensor_slices((anchor, pos, neg))
+            train_dataset = train_dataset.map(self._preprocess_train_triplet,
+                                              num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(
+                num_triplets).batch(self.config['batch_size'])
 
-        return train_dataset
+        return train_dataset, num_triplets
 
     def get_val_data(self, num):
         paths = self.valid_paths
@@ -222,7 +222,7 @@ def main():
     from backbones.resnet_v1 import ResNet_v1_50
     from models.models import MyModel
     model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'])
-    triplet_data = gd.get_train_triplets_data(model)
+    triplet_data, _ = gd.get_train_triplets_data(model)
     for img1, img2, img3 in triplet_data.take(1):
         plt.imshow(img1[0])
         plt.show()
