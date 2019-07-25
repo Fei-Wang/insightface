@@ -30,8 +30,8 @@ thresh: 0.2
 below_fpr: 0.001        # fpr should below this
 # paths
 
-train_dir: '~/data/insightface/train'
-valid_dir: '~/data/insightface/val'
+train_dir: '~/data/insightface/recognition/train'
+valid_dir: '~/data/insightface/recognition/val'
 test_dir:
-ckpt_dir: '~/models/insightface/'
-summary_dir: '~/logs/insightface/summary'
+ckpt_dir: '~/models/insightface/recognition'
+summary_dir: '~/logs/insightface/recognition/summary'
