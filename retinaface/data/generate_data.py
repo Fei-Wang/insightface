@@ -39,13 +39,6 @@ class GenerateData:
             paths.append(path)
             labels.append(label)
 
-        max = 0
-        idx = -1
-        for i, l in enumerate(labels):
-            if max < len(l):
-                max = len(l)
-                idx = i
-        print(idx)
         return paths, labels
 
     def _preprocess(self, image_path, trianing=True):
@@ -85,6 +78,7 @@ class GenerateData:
         paths, labels = self._trian_paths, self._trian_labels
         assert (len(paths) == len(labels))
         total = len(paths)
+        labels = tf.ragged.constant(labels)
         train_dataset = tf.data.Dataset.from_tensor_slices((paths, labels))
         train_dataset = train_dataset.map(self._preprocess_train,
                                           num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(
@@ -149,19 +143,21 @@ def main():
     with open(args.config_path) as cfg:
         config = yaml.load(cfg, Loader=yaml.FullLoader)
 
-    dataset = tf.data.Dataset.range(100)
+    # dataset = tf.data.Dataset.range(100)
 
 
-    dataset = dataset.map(lambda x: tf.fill([tf.cast(x, tf.int32)], x))
-    for i in dataset:
-        print(i)
-    # gd = GenerateData(config)
-    # train_data = gd.get_train_data()
-    # import matplotlib.pyplot as plt
-    # for img, label in train_data.take(1):
-    #     plt.imshow(img[0])
-    #     plt.show()
-    pass
+    # dataset = dataset.map(lambda x: tf.fill([tf.cast(x, tf.int32)], x))
+    # for i in dataset:
+    #     print(i)
+    gd = GenerateData(config)
+    train_data = gd.get_train_data()
+    import matplotlib.pyplot as plt
+    for img, label in train_data.take(1):
+        print(img.shape)
+        print(label.shape)
+        plt.imshow(img[0])
+        plt.show()
+        pass
 
 if __name__ == '__main__':
     main()
