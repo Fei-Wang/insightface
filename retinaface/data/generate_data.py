@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 
-import numpy as np
 import tensorflow as tf
 
 tf.enable_eager_execution()
@@ -61,19 +60,6 @@ class GenerateData:
 
         return image, label
 
-    def _preprocess_train_triplet(self, image_path1, image_path2, image_path3):
-        image1 = self._preprocess(image_path1, trianing=True)
-        image2 = self._preprocess(image_path2, trianing=True)
-        image3 = self._preprocess(image_path3, trianing=True)
-
-        return image1, image2, image3
-
-    def _preprocess_val(self, image_path1, image_path2, label):
-        image1 = self._preprocess(image_path1, trianing=False)
-        image2 = self._preprocess(image_path2, trianing=False)
-
-        return image1, image2, label
-
     def get_train_data(self):
         paths, labels = self._trian_paths, self._trian_labels
         assert (len(paths) == len(labels))
@@ -85,46 +71,6 @@ class GenerateData:
             total).batch(self.config['batch_size'])
 
         return train_dataset
-
-    def get_val_data(self, num):
-        paths = self._valid_paths
-        paths1 = []
-        paths2 = []
-        labels = []
-        oo = 0
-        while oo < num / 2:
-            num_cls = np.random.randint(0, len(paths))
-            cls = paths[num_cls]
-            if len(cls) > 0:
-                im_no1 = np.random.randint(0, len(cls))
-                im_no2 = np.random.randint(0, len(cls))
-                if im_no1 != im_no2:
-                    paths1.append(cls[im_no1])
-                    paths2.append(cls[im_no2])
-                    labels.append(True)
-                    oo = oo + 1
-
-        nn = 0
-        while nn < num / 2:
-            num_cls1 = np.random.randint(0, len(paths))
-            num_cls2 = np.random.randint(0, len(paths))
-            if num_cls1 != num_cls2:
-                cls1 = paths[num_cls1]
-                cls2 = paths[num_cls2]
-                if len(cls1) > 0 and len(cls2) > 0:
-                    im_no1 = np.random.randint(0, len(cls1))
-                    im_no2 = np.random.randint(0, len(cls2))
-                    paths1.append(cls1[im_no1])
-                    paths2.append(cls2[im_no2])
-                    labels.append(False)
-                    nn = nn + 1
-
-        val_dataset = tf.data.Dataset.from_tensor_slices((paths1, paths2, labels))
-        val_dataset = val_dataset.map(self._preprocess_val,
-                                      num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(num).batch(
-            self.config['valid_batch_size'])
-
-        return val_dataset
 
 
 def parse_args(argv):
@@ -145,7 +91,6 @@ def main():
 
     # dataset = tf.data.Dataset.range(100)
 
-
     # dataset = dataset.map(lambda x: tf.fill([tf.cast(x, tf.int32)], x))
     # for i in dataset:
     #     print(i)
@@ -158,6 +103,7 @@ def main():
         plt.imshow(img[0])
         plt.show()
         pass
+
 
 if __name__ == '__main__':
     main()

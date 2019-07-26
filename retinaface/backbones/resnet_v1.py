@@ -90,9 +90,9 @@ class ResNet_v1(tf.keras.Model):
         x = self.maxpool(x)
         for block in self.blocks:
             x = block(x, training=training)
-        x = self.globalpool(x)
-        if self.dense is not None:
-            x = self.dense(x)
+        # x = self.globalpool(x)
+        # if self.dense is not None:
+        #     x = self.dense(x)
 
         return x
 

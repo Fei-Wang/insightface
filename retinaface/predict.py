@@ -13,11 +13,12 @@ from models.models import MyModel
 tf.enable_eager_execution()
 
 
-def get_embeddings(model, images):
-    prelogits, _, _ = model(images, training=False)
-    embeddings = tf.nn.l2_normalize(prelogits, axis=-1)
-
-    return embeddings
+def predict(model, images):
+    pre = model(images, training=False)  # shape=(N, H, W, 32)
+    # 1. 根据anchor和坐标位置映射为原图位置 shape=(N, H*W*2， 16)
+    # 2. 根据阈值进行排除 shape=(N, X, 16)
+    # 3. 根据NMS进行排除 shape=(N, Y, 16)
+    return pre
 
 
 def parse_args(argv):
@@ -37,8 +38,8 @@ def main():
     with open(args.config_path) as cfg:
         config = yaml.load(cfg, Loader=yaml.FullLoader)
     gd = GenerateData(config)
-    train_data, _ = gd.get_train_data()
-    model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'])
+    train_data = gd.get_train_data()
+    model = MyModel(ResNet_v1_50)
 
     ckpt_dir = os.path.expanduser(config['ckpt_dir'])
     ckpt = tf.train.Checkpoint(backbone=model.backbone)
@@ -47,14 +48,10 @@ def main():
     # for layer in tf.train.list_variables(tf.train.latest_checkpoint(ckpt_dir)):
     #     print(layer)
 
-    for img, _ in train_data.take(1):
-        embs = get_embeddings(model, img)
-        for i in range(embs.shape[0]):
-            for j in range(embs.shape[0]):
-                val = 0
-                for k in range(512):
-                    val += embs[i][k] * embs[j][k]
-                print(i, j, val)
+    for img, label in train_data.take(1):
+        value = predict(model, img)
+        print(value.shape)
+        print(label.bounding_shape())
 
 
 if __name__ == '__main__':
