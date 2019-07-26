@@ -1,10 +1,12 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
+import sys
 
 import numpy as np
 import tensorflow as tf
 
+sys.path.insert(1, '..')
 from predict import get_embeddings
 
 tf.enable_eager_execution()
