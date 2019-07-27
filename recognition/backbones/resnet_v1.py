@@ -73,11 +73,13 @@ class ResNet_v1(tf.keras.Model):
         self.bn = tf.keras.layers.BatchNormalization()
         self.relu = tf.keras.layers.ReLU()
         self.maxpool = tf.keras.layers.MaxPool2D((3, 3), strides=(2, 2), padding='same')
-        self.blocks1 = [Block(filters=64, strides=(1, 1)) for _ in range(layers[0])]
-        self.blocks2 = [Block(filters=128, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[1])]
-        self.blocks3 = [Block(filters=256, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[2])]
-        self.blocks4 = [Block(filters=512, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[3])]
-        self.blocks = self.blocks1 + self.blocks2 + self.blocks3 + self.blocks4
+        self.blocks1 = tf.keras.Sequential([Block(filters=64, strides=(1, 1)) for _ in range(layers[0])])
+        self.blocks2 = tf.keras.Sequential(
+            [Block(filters=128, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[1])])
+        self.blocks3 = tf.keras.Sequential(
+            [Block(filters=256, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[2])])
+        self.blocks4 = tf.keras.Sequential(
+            [Block(filters=512, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[3])])
         self.globalpool = tf.keras.layers.GlobalAveragePooling2D()
         self.dense = None
         if include_top:
@@ -88,8 +90,10 @@ class ResNet_v1(tf.keras.Model):
         x = self.bn(x, training=training)
         x = self.relu(x)
         x = self.maxpool(x)
-        for block in self.blocks:
-            x = block(x, training=training)
+        x = self.blocks1(x, training=training)
+        x = self.blocks2(x, training=training)
+        x = self.blocks3(x, training=training)
+        x = self.blocks4(x, training=training)
         x = self.globalpool(x)
         if self.dense is not None:
             x = self.dense(x)
