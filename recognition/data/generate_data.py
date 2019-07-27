@@ -16,7 +16,7 @@ class GenerateData:
 
     def __init__(self, config=None):
         self.config = config
-        self.trian_paths, self.trian_labels = self._get_path_label(self.config['train_dir'])
+        self.train_paths, self.train_labels = self._get_path_label(self.config['train_dir'])
         self.valid_paths, _ = self._get_path_label(self.config['valid_dir'])
 
     @staticmethod
@@ -70,7 +70,7 @@ class GenerateData:
         return image1, image2, label
 
     def get_train_data(self):
-        paths, labels = self.trian_paths, self.trian_labels
+        paths, labels = self.train_paths, self.train_labels
         cat_num = len(paths)
         paths = [path for cls in paths for path in cls]
         labels = [label for cls in labels for label in cls]
@@ -89,7 +89,7 @@ class GenerateData:
         return train_dataset, cat_num
 
     def get_train_triplets_data(self, model):
-        paths, labels = self.trian_paths, self.trian_labels
+        paths, labels = self.train_paths, self.train_labels
         begins = []  # include
         ends = []  # not include
         length = 0
