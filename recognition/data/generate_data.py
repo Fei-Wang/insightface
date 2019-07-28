@@ -77,14 +77,12 @@ class GenerateData:
         assert (len(paths) == len(labels))
         total = len(paths)
         # logger.info("the total pic number is {}".format(total))
-        # tfrec = tf.data.experimental.TFRecordWriter('images.tfrec')
-        # tfrec.write(image_ds)
-        # filenames = ["/var/data/file1.tfrecord", "/var/data/file2.tfrecord"]
-        # dataset = tf.data.TFRecordDataset(filenames)
         train_dataset = tf.data.Dataset.from_tensor_slices((paths, labels))
-        train_dataset = train_dataset.map(self._preprocess_train,
-                                          num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(
-            total).batch(self.config['batch_size'])
+        train_dataset = train_dataset.cache()
+        train_dataset = train_dataset.shuffle(total)
+        train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        train_dataset = train_dataset.map(self._preprocess_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        train_dataset = train_dataset.batch(self.config['batch_size'])
 
         return train_dataset, cat_num
 
@@ -104,9 +102,11 @@ class GenerateData:
         assert (len(paths) == len(labels))
 
         train_dataset = tf.data.Dataset.from_tensor_slices((paths, labels))
-        train_dataset = train_dataset.map(self._preprocess_train,
-                                          num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().batch(
-            self.config['batch_size'])
+        train_dataset = train_dataset.cache()
+        train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        train_dataset = train_dataset.map(self._preprocess_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        train_dataset = train_dataset.batch(self.config['batch_size'])
+
         embs = None
         labels = None
         for img, label in train_dataset:
@@ -143,9 +143,12 @@ class GenerateData:
                     num_triplets += 1
         if num_triplets > 0:
             train_dataset = tf.data.Dataset.from_tensor_slices((anchor, pos, neg))
+            train_dataset = train_dataset.cache()
+            train_dataset = train_dataset.shuffle(num_triplets)
+            train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
             train_dataset = train_dataset.map(self._preprocess_train_triplet,
-                                              num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(
-                num_triplets).batch(self.config['batch_size'])
+                                              num_parallel_calls=tf.data.experimental.AUTOTUNE)
+            train_dataset = train_dataset.batch(self.config['batch_size'])
 
         return train_dataset, num_triplets
 
@@ -183,10 +186,11 @@ class GenerateData:
                     nn = nn + 1
 
         val_dataset = tf.data.Dataset.from_tensor_slices((paths1, paths2, labels))
-        val_dataset = val_dataset.map(self._preprocess_val,
-                                      num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(num).batch(
-            self.config['valid_batch_size'])
-
+        val_dataset = val_dataset.cache()
+        val_dataset = val_dataset.shuffle(num)
+        val_dataset = val_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        val_dataset = val_dataset.map(self._preprocess_val, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        val_dataset = val_dataset.batch(self.config['valid_batch_size'])
         return val_dataset
 
 
