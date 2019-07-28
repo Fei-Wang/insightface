@@ -29,6 +29,7 @@ class MyModel(tf.keras.Model):
         self.dense = tf.keras.layers.Dense(classes)
         self.norm_dense = NormDense(classes)
 
+    @tf.function
     def call(self, inputs, training=False, mask=None):
         prelogits = self.backbone(inputs, training=training)
         dense = self.dense(prelogits)
