@@ -36,11 +36,11 @@ class FPN(tf.keras.Model):
         p2 = self.lateral_2(c2)
         p2 += self.top_down(p3)
         p2 = self.anti_aliasing2(p2)
-        print(p2.shape)
-        print(p3.shape)
-        print(p4.shape)
-        print(p5.shape)
-        print(p6.shape)
+        # print(p2.shape)
+        # print(p3.shape)
+        # print(p4.shape)
+        # print(p5.shape)
+        # print(p6.shape)
 
         return p2, p3, p4, p5, p6
 

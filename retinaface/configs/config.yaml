@@ -2,7 +2,8 @@
 backbone:
 
 image_size: 640
-
+num_class: 2
+anchor_per_layer: 2
 
 
 # run params
