@@ -67,64 +67,63 @@ class Bottleneck(tf.keras.layers.Layer):
 
 
 class ResNet_v1(tf.keras.Model):
-    def __init__(self, Block=Bottleneck, layers=(3, 4, 6, 3), include_top=True, embedding_size=512):
+    def __init__(self, Block=Bottleneck, layers=(3, 4, 6, 3)):
         super(ResNet_v1, self).__init__()
         self.conv = tf.keras.layers.Conv2D(64, (7, 7), strides=(2, 2), padding='same')
         self.bn = tf.keras.layers.BatchNormalization()
         self.relu = tf.keras.layers.ReLU()
         self.maxpool = tf.keras.layers.MaxPool2D((3, 3), strides=(2, 2), padding='same')
-        self.blocks1 = [Block(filters=64, strides=(1, 1)) for _ in range(layers[0])]
-        self.blocks2 = [Block(filters=128, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[1])]
-        self.blocks3 = [Block(filters=256, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[2])]
-        self.blocks4 = [Block(filters=512, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[3])]
-        self.blocks = self.blocks1 + self.blocks2 + self.blocks3 + self.blocks4
-        self.globalpool = tf.keras.layers.GlobalAveragePooling2D()
-        self.dense = None
-        if include_top:
-            self.dense = tf.keras.layers.Dense(embedding_size)
+        self.blocks1 = tf.keras.Sequential([Block(filters=64, strides=(1, 1)) for _ in range(layers[0])])
+        self.blocks2 = tf.keras.Sequential(
+            [Block(filters=128, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[1])])
+        self.blocks3 = tf.keras.Sequential(
+            [Block(filters=256, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[2])])
+        self.blocks4 = tf.keras.Sequential(
+            [Block(filters=512, strides=(2, 2) if i < 1 else (1, 1)) for i in range(layers[3])])
+        # self.globalpool = tf.keras.layers.GlobalAveragePooling2D()
+        # self.dense = None
+        # if include_top:
+        #     self.dense = tf.keras.layers.Dense(embedding_size)
 
     def call(self, inputs, training=False, mask=None):
         x = self.conv(inputs)
         x = self.bn(x, training=training)
         x = self.relu(x)
         x = self.maxpool(x)
-        for block in self.blocks:
-            x = block(x, training=training)
+        c2 = self.blocks1(x, training=training)
+        c3 = self.blocks2(c2, training=training)
+        c4 = self.blocks3(c3, training=training)
+        c5 = self.blocks4(c4, training=training)
         # x = self.globalpool(x)
         # if self.dense is not None:
         #     x = self.dense(x)
 
-        return x
+        return c2, c3, c4, c5
 
 
 class ResNet_v1_18(ResNet_v1):
-    def __init__(self, include_top=True, embedding_size=512):
-        super(ResNet_v1_18, self).__init__(Block=BasicBlock, layers=(2, 2, 2, 2), include_top=include_top,
-                                           embedding_size=embedding_size)
+    def __init__(self):
+        super(ResNet_v1_18, self).__init__(Block=BasicBlock, layers=(2, 2, 2, 2))
 
 
 class ResNet_v1_34(ResNet_v1):
-    def __init__(self, include_top=True, embedding_size=512):
-        super(ResNet_v1_34, self).__init__(Block=BasicBlock, layers=(3, 4, 6, 3), include_top=include_top,
-                                           embedding_size=embedding_size)
+    def __init__(self):
+        super(ResNet_v1_34, self).__init__(Block=BasicBlock, layers=(3, 4, 6, 3))
 
 
 class ResNet_v1_50(ResNet_v1):
-    def __init__(self, include_top=True, embedding_size=512):
-        super(ResNet_v1_50, self).__init__(Block=Bottleneck, layers=(3, 4, 6, 3), include_top=include_top,
-                                           embedding_size=embedding_size)
+    def __init__(self):
+        super(ResNet_v1_50, self).__init__(Block=Bottleneck, layers=(3, 4, 6, 3))
 
 
 class ResNet_v1_101(ResNet_v1):
-    def __init__(self, include_top=True, embedding_size=512):
-        super(ResNet_v1_101, self).__init__(Block=Bottleneck, layers=(3, 4, 23, 3), include_top=include_top,
-                                            embedding_size=embedding_size)
+    def __init__(self):
+        super(ResNet_v1_101, self).__init__(Block=Bottleneck, layers=(3, 4, 23, 3))
 
 
 class ResNet_v1_152(ResNet_v1):
-    def __init__(self, include_top=True, embedding_size=512):
-        super(ResNet_v1_152, self).__init__(Block=Bottleneck, layers=(3, 8, 36, 3), include_top=include_top,
-                                            embedding_size=embedding_size)
+    def __init__(self):
+        super(ResNet_v1_152, self).__init__(Block=Bottleneck, layers=(3, 8, 36, 3))
 
 
 def parse_args(argv):
@@ -141,16 +140,28 @@ def main():
     import sys
     args = parse_args(sys.argv[1:])
     # logger.info(args)
-    sys.path.append("..")
-    from data.generate_data import GenerateData
+    from retinaface.data.generate_data import GenerateData
     import yaml
     with open(args.config_path) as cfg:
         config = yaml.load(cfg, Loader=yaml.FullLoader)
     gd = GenerateData(config)
-    train_data, classes = gd.get_train_data()
+    train_data = gd.get_train_data()
 
-    model = ResNet_v1_50(embedding_size=config['embedding_size'])
-    model.build((None, 112, 112, 3))
+    model = ResNet_v1_18()
+    model.build((None, 640, 640, 3))
+    model.summary()
+    model = ResNet_v1_34()
+    model.build((None, 640, 640, 3))
+    model.summary()
+    model = ResNet_v1_50()
+    model.build((None, 640, 640, 3))
+    model.summary()
+    model = ResNet_v1_101()
+    model.build((None, 640, 640, 3))
+    model.summary()
+    model = ResNet_v1_152()
+
+    model.build((None, 640, 640, 3))
     model.summary()
     # model = tf.keras.applications.ResNet50(input_shape=(112, 112, 3), include_top=False)
     # model = tf.keras.applications.ResNet50(include_top=True, weights='imagenet')

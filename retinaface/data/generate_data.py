@@ -65,10 +65,13 @@ class GenerateData:
         assert (len(paths) == len(labels))
         total = len(paths)
         labels = tf.ragged.constant(labels)
+
         train_dataset = tf.data.Dataset.from_tensor_slices((paths, labels))
-        train_dataset = train_dataset.map(self._preprocess_train,
-                                          num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(
-            total).batch(self.config['batch_size'])
+        train_dataset = train_dataset.cache()
+        train_dataset = train_dataset.shuffle(total)
+        train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        train_dataset = train_dataset.map(self._preprocess_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        train_dataset = train_dataset.batch(self.config['batch_size'])
 
         return train_dataset
 

@@ -1,7 +1,7 @@
 # model params
 backbone:
 
-image_size: 112
+image_size: 640
 
 
 

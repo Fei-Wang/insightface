@@ -7,8 +7,8 @@ import sys
 import tensorflow as tf
 import yaml
 
-from backbones.resnet_v1 import ResNet_v1_50
-from models.models import MyModel
+from retinaface.backbones.resnet_v1 import ResNet_v1_50
+from retinaface.models.models import MyModel
 
 tf.enable_eager_execution()
 
@@ -33,7 +33,7 @@ def parse_args(argv):
 def main():
     args = parse_args(sys.argv[1:])
     # logger.info(args)
-    from data.generate_data import GenerateData
+    from retinaface.data.generate_data import GenerateData
 
     with open(args.config_path) as cfg:
         config = yaml.load(cfg, Loader=yaml.FullLoader)
@@ -50,8 +50,8 @@ def main():
 
     for img, label in train_data.take(1):
         value = predict(model, img)
-        print(value.shape)
-        print(label.bounding_shape())
+        # print(value.shape)
+        # print(label.bounding_shape())
 
 
 if __name__ == '__main__':
