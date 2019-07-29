@@ -51,9 +51,8 @@ def main():
     import sys
     args = parse_args(sys.argv[1:])
     # logger.info(args)
-    sys.path.append("..")
-    from data.generate_data import GenerateData
-    from backbones.resnet_v1 import ResNet_v1_50
+    from recognition.data.generate_data import GenerateData
+    from recognition.backbones.resnet_v1 import ResNet_v1_50
     import yaml
     with open(args.config_path) as cfg:
         config = yaml.load(cfg, Loader=yaml.FullLoader)

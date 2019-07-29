@@ -145,8 +145,7 @@ def main():
     import sys
     args = parse_args(sys.argv[1:])
     # logger.info(args)
-    sys.path.append("..")
-    from data.generate_data import GenerateData
+    from recognition.data.generate_data import GenerateData
     import yaml
     with open(args.config_path) as cfg:
         config = yaml.load(cfg, Loader=yaml.FullLoader)

@@ -1,13 +1,11 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-import sys
 
 import numpy as np
 import tensorflow as tf
 
-sys.path.insert(1, '..')
-from predict import get_embeddings
+from recognition.predict import get_embeddings
 
 tf.enable_eager_execution()
 
@@ -225,8 +223,8 @@ def main():
     #
     #     plt.imshow(img2[0])
     #     plt.show()
-    from backbones.resnet_v1 import ResNet_v1_50
-    from models.models import MyModel
+    from recognition.backbones.resnet_v1 import ResNet_v1_50
+    from recognition.models.models import MyModel
     model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'])
     triplet_data, _ = gd.get_train_triplets_data(model)
     for img1, img2, img3 in triplet_data.take(1):

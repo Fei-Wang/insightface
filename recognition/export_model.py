@@ -7,9 +7,9 @@ import sys
 import tensorflow as tf
 import yaml
 
-from backbones.resnet_v1 import ResNet_v1_50
-from data.generate_data import GenerateData
-from models.models import MyModel
+from recognition.backbones.resnet_v1 import ResNet_v1_50
+from recognition.data.generate_data import GenerateData
+from recognition.models.models import MyModel
 
 tf.enable_eager_execution()
 
