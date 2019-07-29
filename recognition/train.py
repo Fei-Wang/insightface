@@ -10,12 +10,12 @@ import time
 import tensorflow as tf
 import yaml
 
-from backbones.resnet_v1 import ResNet_v1_50
-from data.generate_data import GenerateData
-from losses.loss import arcface_loss, triplet_loss
-from models.models import MyModel
-from predict import get_embeddings
-from valid import Valid_Data
+from recognition.backbones.resnet_v1 import ResNet_v1_50
+from recognition.data.generate_data import GenerateData
+from recognition.losses.loss import arcface_loss, triplet_loss
+from recognition.models.models import MyModel
+from recognition.predict import get_embeddings
+from recognition.valid import Valid_Data
 
 # os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 # config = tf.ConfigProto()
