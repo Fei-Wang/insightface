@@ -12,7 +12,7 @@ import yaml
 
 from recognition.backbones.resnet_v1 import ResNet_v1_50
 from recognition.data.generate_data import GenerateData
-from recognition.losses.loss import arcface_loss, triplet_loss
+from recognition.losses.loss import arcface_loss, triplet_loss, center_loss
 from recognition.models.models import MyModel
 from recognition.predict import get_embeddings
 from recognition.valid import Valid_Data
@@ -50,6 +50,13 @@ class Trainer:
         self.learning_rate = config['learning_rate']
         self.loss_type = config['loss_type']
 
+        # center loss init
+        self.centers = None
+        self.ct_loss_factor = config['center_loss_factor']
+        self.ct_alpha = config['center_alpha']
+        if self.loss_type == 'logit' and self.ct_loss_factor > 0:
+            self.centers = tf.Variable(initial_value=tf.zeros((cat_num, config['embedding_size'])), trainable=False)
+
         optimizer = config['optimizer']
         if optimizer == 'ADADELTA':
             self.optimizer = tf.keras.optimizers.Adadelta(self.learning_rate)
@@ -71,7 +78,13 @@ class Trainer:
             raise ValueError('Invalid optimization algorithm')
 
         ckpt_dir = os.path.expanduser(config['ckpt_dir'])
-        self.ckpt = tf.train.Checkpoint(backbone=self.model.backbone, model=self.model, optimizer=self.optimizer)
+
+        if self.centers is None:
+            self.ckpt = tf.train.Checkpoint(backbone=self.model.backbone, model=self.model, optimizer=self.optimizer)
+        else:
+            # save centers if use center loss
+            self.ckpt = tf.train.Checkpoint(backbone=self.model.backbone, model=self.model, optimizer=self.optimizer,
+                                            centers=self.centers)
         self.ckpt_manager = tf.train.CheckpointManager(self.ckpt, ckpt_dir, max_to_keep=5, checkpoint_name='mymodel')
 
         if self.ckpt_manager.latest_checkpoint:
@@ -107,23 +120,22 @@ class Trainer:
     def _train_step(self, img, label):
         with tf.GradientTape(persistent=False) as tape:
             prelogits, dense, norm_dense = self.model(img, training=True)
-            # embs = tf.nn.l2_normalize(prelogits, axis=-1)
-            # for i in range(embs.shape[0]):
-            #     for j in range(embs.shape[0]):
-            #         val = 0
-            #         for k in range(512):
-            #             val += embs[i][k] * embs[j][k]
-            #         print(i, j, val)
-            # print(tf.argmax(dense, axis=-1))
-            # print(label)
+
             # sm_loss = softmax_loss(dense, label)
             # norm_sm_loss = softmax_loss(norm_dense, label)
             arc_loss = arcface_loss(prelogits, norm_dense, label, self.m1, self.m2, self.m3, self.s)
-            loss = arc_loss
+            logit_loss = arc_loss
+
+            if self.centers is not None:
+                ct_loss, self.centers = center_loss(prelogits, label, self.centers, self.ct_alpha)
+            else:
+                ct_loss = 0
+
+            loss = logit_loss + self.ct_loss_factor * ct_loss
         gradients = tape.gradient(loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
 
-        return loss
+        return loss, logit_loss, ct_loss
 
     @tf.function
     def _train_triplet_step(self, anchor, pos, neg):
@@ -155,10 +167,14 @@ class Trainer:
             elif self.loss_type == 'logit':
                 # logit loss
                 for step, (input_image, target) in enumerate(self.train_data):
-                    loss = self._train_step(input_image, target)
+                    loss, logit_loss, ct_loss = self._train_step(input_image, target)
                     with self.train_summary_writer.as_default():
                         tf.compat.v2.summary.scalar('loss', loss, step=step)
-                    print('epoch: {}, step: {}, loss = {}'.format(epoch, step, loss))
+                        tf.compat.v2.summary.scalar('logit_loss', logit_loss, step=step)
+                        tf.compat.v2.summary.scalar('center_loss', ct_loss, step=step)
+                    print('epoch: {}, step: {}, loss = {}, logit_loss = {}, center_loss = {}'.format(epoch, step, loss,
+                                                                                                     logit_loss,
+                                                                                                     ct_loss))
             else:
                 raise ValueError('Invalid loss type')
 
