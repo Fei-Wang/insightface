@@ -6,7 +6,7 @@ tf.enable_eager_execution()
 
 
 class ContextModule(tf.keras.Model):
-    # TODO: not sure how exactly to construct the module
+    # TODO: not sure exactly how to construct the module
     def __init__(self):
         super(ContextModule, self).__init__()
         self.conv1 = tf.keras.layers.Conv2D(256, (3, 3), strides=(1, 1), padding='same')
@@ -27,7 +27,7 @@ class ContextModule(tf.keras.Model):
 class RetinaFace(tf.keras.Model):
     """RetinaFace - https://arxiv.org/abs/1905.00641"""
 
-    def __init__(self, fpn, num_class=2, anchor_per_layer=2):
+    def __init__(self, fpn, num_class=2, anchor_per_layer=3):
         super(RetinaFace, self).__init__()
         self.fpn = fpn()
         self.cm = [ContextModule() for _ in range(5)]
@@ -37,11 +37,11 @@ class RetinaFace(tf.keras.Model):
 
     def call(self, inputs, training=False, mask=None):
         features = self.fpn(inputs, training=training)
-        x = [self.cm[i](features[i]) for i in range(5)]
-        cls = [self.cls_conv[i](x[i]) for i in range(5)]
-        box = [self.box_conv[i](x[i]) for i in range(5)]
-        lmk = [self.lmk_conv[i](x[i]) for i in range(5)]
-
+        x = [self.cm[i](features[i]) for i in range(len(features))]
+        cls = [self.cls_conv[i](x[i]) for i in range(len(features))]
+        box = [self.box_conv[i](x[i]) for i in range(len(features))]
+        lmk = [self.lmk_conv[i](x[i]) for i in range(len(features))]
+        # pred = [tf.concat([cls[i], box[i], lmk[i]], axis=-1) for i in range(len(features))]
         return cls, box, lmk
 
 
@@ -72,11 +72,7 @@ def main():
     for img, _ in train_data.take(1):
         cls, box, lmk = model(img, training=False)
         print(img.shape, img[0].shape)
-        for i in cls:
-            print(i.shape)
         for i in box:
-            print(i.shape)
-        for i in lmk:
             print(i.shape)
 
 

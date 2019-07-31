@@ -3,8 +3,12 @@ backbone:
 
 image_size: 640
 num_class: 2
-anchor_per_layer: 2
 
+# anchor setting
+use_anchors: True
+base_anchors: [[16, 20.2, 25.4], [32, 40.3, 50.8], [64, 80.6, 101.6], [128, 161.3, 203.2], [256, 322.54, 406.37]]
+anchor_ratios: [1, 1.5]   # list of h:w
+feat_strides: [4, 8, 16, 32, 64]
 
 # run params
 batch_size: 16

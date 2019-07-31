@@ -1,24 +1,25 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import argparse
-import os
 import sys
 
 import tensorflow as tf
 import yaml
 
-from retinaface.backbones.resnet_v1 import ResNet_v1_50
-from retinaface.models.models import MyModel
+from retinaface.backbones.resnet_v1_fpn import ResNet_v1_50_FPN
+from retinaface.models.models import RetinaFace
+from retinaface.utils.anchor import generate_anchors
 
 tf.enable_eager_execution()
 
 
-def predict(model, images):
-    pre = model(images, training=False)  # shape=(N, H, W, 32)
+def predict(model, images, anchors):
+    cls, box, lmk = model(images, training=False)  # shape=[(N, 160, 160, 32),(1/2),(1/4),(1/8),(1/16)]
     # 1. 根据anchor和坐标位置映射为原图位置 shape=(N, H*W*2， 16)
+
     # 2. 根据阈值进行排除 shape=(N, X, 16)
     # 3. 根据NMS进行排除 shape=(N, Y, 16)
-    return pre
+    return cls, box, lmk
 
 
 def parse_args(argv):
@@ -39,19 +40,15 @@ def main():
         config = yaml.load(cfg, Loader=yaml.FullLoader)
     gd = GenerateData(config)
     train_data = gd.get_train_data()
-    model = MyModel(ResNet_v1_50)
+    model = RetinaFace(ResNet_v1_50_FPN)
+    anchors = generate_anchors(config)
 
-    ckpt_dir = os.path.expanduser(config['ckpt_dir'])
-    ckpt = tf.train.Checkpoint(backbone=model.backbone)
-    ckpt.restore(tf.train.latest_checkpoint(ckpt_dir)).expect_partial()
-    print("Restored from {}".format(tf.train.latest_checkpoint(ckpt_dir)))
-    # for layer in tf.train.list_variables(tf.train.latest_checkpoint(ckpt_dir)):
-    #     print(layer)
+    for img, _ in train_data.take(1):
+        cls, box, lmk = predict(model, img, anchors)
 
-    for img, label in train_data.take(1):
-        value = predict(model, img)
-        # print(value.shape)
-        # print(label.bounding_shape())
+        print(img.shape, img[0].shape)
+        for i in box:
+            print(i.shape)
 
 
 if __name__ == '__main__':
