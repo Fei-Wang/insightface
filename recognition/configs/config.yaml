@@ -12,9 +12,9 @@ learning_rate: 0.01
 
 loss_type: 'logit'   # logit or triplet
 logits_scale: 64.0
-logits_margin1: 1.0   # m1控制sphereface should >= 1
-logits_margin2: 0.2   # m2控制cosineface should >= 0
-logits_margin3: 0.3   # m3控制arcface    should >= 0
+logits_margin1: 1.0   # m1: sphereface should >= 1
+logits_margin2: 0.2   # m2: cosineface should >= 0
+logits_margin3: 0.3   # m3: arcface    should >= 0
 
 center_loss_factor: 0.0  # center loss
 center_alpha: 0.9   # center update rate
