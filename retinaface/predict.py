@@ -3,23 +3,34 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import argparse
 import sys
 
-import tensorflow as tf
 import yaml
 
 from retinaface.backbones.resnet_v1_fpn import ResNet_v1_50_FPN
 from retinaface.models.models import RetinaFace
-from retinaface.utils.anchor import generate_anchors
+from retinaface.utils.anchor import AnchorUtil
+import numpy as np
 
-tf.enable_eager_execution()
 
+def predict(model, images, au, conf_thresh, nms_thresh):
+    classes, boxes, lmks = model(images, training=False)  # shape=[(N, 160, 160, 12),(1/2),(1/4),(1/8),(1/16)],[],[]
+    # 1. according anchor update boxes and lmks
+    boxes = au.decode_box(boxes)
+    lmks = au.decode_lmk(lmks)
 
-def predict(model, images, anchors):
-    cls, box, lmk = model(images, training=False)  # shape=[(N, 160, 160, 32),(1/2),(1/4),(1/8),(1/16)]
-    # 1. 根据anchor和坐标位置映射为原图位置 shape=(N, H*W*2， 16)
+    preds = None
+    for i, cls in enumerate(classes):
+        # score = np.reshape(score, (score.shape[0], score.shape[1], score.shape[2], -1, 2))
+        box = boxes[i]
+        lmk = lmks[i]
+        pred = np.concatenate((cls, box, lmk), axis=-1)
+        pred = np.reshape(pred, (pred.shape[0], -1, pred.shape[-1]))
+        preds = np.concatenate((preds, pred), axis=1) if preds is not None else pred
+    print(preds.shape, type(preds))
+    # 2. according thresh to exclude
+    # idx = np.where(preds[:, :, 0] > conf_thresh)
 
-    # 2. 根据阈值进行排除 shape=(N, X, 16)
-    # 3. 根据NMS进行排除 shape=(N, Y, 16)
-    return cls, box, lmk
+    # 3. according nms to exclude
+    return preds
 
 
 def parse_args(argv):
@@ -40,15 +51,12 @@ def main():
         config = yaml.load(cfg, Loader=yaml.FullLoader)
     gd = GenerateData(config)
     train_data = gd.get_train_data()
-    model = RetinaFace(ResNet_v1_50_FPN)
-    anchors = generate_anchors(config)
-
+    model = RetinaFace(ResNet_v1_50_FPN, num_class=2, anchor_per_scale=6)
+    au = AnchorUtil(config)
+    conf_thresh = config['conf_thresh']
+    nms_thresh = config['nms_thresh']
     for img, _ in train_data.take(1):
-        cls, box, lmk = predict(model, img, anchors)
-
-        print(img.shape, img[0].shape)
-        for i in box:
-            print(i.shape)
+        preds = predict(model, img, au, conf_thresh, nms_thresh)
 
 
 if __name__ == '__main__':

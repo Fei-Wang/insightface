@@ -27,13 +27,15 @@ class ContextModule(tf.keras.Model):
 class RetinaFace(tf.keras.Model):
     """RetinaFace - https://arxiv.org/abs/1905.00641"""
 
-    def __init__(self, fpn, num_class=2, anchor_per_layer=3):
+    def __init__(self, fpn, num_class=2, anchor_per_scale=3):
         super(RetinaFace, self).__init__()
+        self.num_class = num_class
         self.fpn = fpn()
         self.cm = [ContextModule() for _ in range(5)]
-        self.cls_conv = [tf.keras.layers.Conv2D(num_class * anchor_per_layer, (3, 3), padding='same') for _ in range(5)]
-        self.box_conv = [tf.keras.layers.Conv2D(4 * anchor_per_layer, (3, 3), padding='same') for _ in range(5)]
-        self.lmk_conv = [tf.keras.layers.Conv2D(10 * anchor_per_layer, (3, 3), padding='same') for _ in range(5)]
+        self.cls_conv = [tf.keras.layers.Conv2D(num_class * anchor_per_scale, (3, 3), padding='same') for _ in range(5)]
+        self.box_conv = [tf.keras.layers.Conv2D(4 * anchor_per_scale, (3, 3), padding='same') for _ in range(5)]
+        self.lmk_conv = [tf.keras.layers.Conv2D(10 * anchor_per_scale, (3, 3), padding='same') for _ in range(5)]
+        self.softmax = tf.keras.layers.Softmax()
 
     def call(self, inputs, training=False, mask=None):
         features = self.fpn(inputs, training=training)
@@ -41,7 +43,17 @@ class RetinaFace(tf.keras.Model):
         cls = [self.cls_conv[i](x[i]) for i in range(len(features))]
         box = [self.box_conv[i](x[i]) for i in range(len(features))]
         lmk = [self.lmk_conv[i](x[i]) for i in range(len(features))]
+
+        # no param part, for calc convenience
+        cls = [tf.reshape(cls[i], (cls[i].shape[0], cls[i].shape[1], cls[i].shape[2], -1, self.num_class)) for i in
+               range(len(features))]
+        cls = [self.softmax(cls[i]) for i in range(len(features))]
+        box = [tf.reshape(box[i], (box[i].shape[0], box[i].shape[1], box[i].shape[2], -1, 4)) for i in
+               range(len(features))]
+        lmk = [tf.reshape(lmk[i], (lmk[i].shape[0], lmk[i].shape[1], lmk[i].shape[2], -1, 10)) for i in
+               range(len(features))]
         # pred = [tf.concat([cls[i], box[i], lmk[i]], axis=-1) for i in range(len(features))]
+
         return cls, box, lmk
 
 
@@ -67,7 +79,7 @@ def main():
     train_data = gd.get_train_data()
 
     model = RetinaFace(ResNet_v1_50_FPN)
-    model.build((None, 640, 640, 3))
+    # model.build((None, 640, 640, 3))
     # model.summary()
     for img, _ in train_data.take(1):
         cls, box, lmk = model(img, training=False)
