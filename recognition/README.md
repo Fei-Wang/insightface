@@ -30,6 +30,7 @@ data/facebank/
 
 ```
 cd ./recognition
+export PYTHONPATH=../:$PYTHONPATH
 python train.py
 ```
 

@@ -24,4 +24,4 @@
 ### Running Environment
 - TensorFlow1.14
 - python 3.7
-- numpy (Anaconda 3 recommended)
+- numpy, pyyaml, matplotlib (Anaconda 3 recommended)
