@@ -13,10 +13,11 @@ feat_strides: [4, 8, 16, 32, 64]
 
 # thresh
 conf_thresh: 0.1
-nms_thresh: 0.2
+iou_thresh: 0.2
+top_k: 1000     # just choose top k, if is neg, for example -1 resprent all - 1
 
 # run params
-batch_size: 16
+batch_size: 4
 
 
 # paths

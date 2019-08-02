@@ -18,6 +18,27 @@ class AnchorUtil:
         self.img_size = config['image_size']
         self.anchors = self._generate_anchors()
 
+    @staticmethod
+    def _trans_wh_xy(box):
+        """
+            trans (cx, cy, w, h) to (x1, y1, x2, y2)
+        :param box:
+        :return: box
+        """
+        m = np.array([[1, 0, 1, 0], [0, 1, 0, 1], [-0.5, 0, 0.5, 0], [0, -0.5, 0, 0.5]])
+        box = np.dot(box, m)
+        return box
+
+    def _limit_boundary(self, obj):
+        """
+            limit the boundary to [0, img_size)
+        :param obj:
+        :return: obj
+        """
+        obj = np.where(obj < 0, 0, obj)
+        obj = np.where(obj >= self.img_size, self.img_size - 1, obj)
+        return obj
+
     def decode_box(self, boxes):
         """
         :param boxes:
@@ -39,7 +60,10 @@ class AnchorUtil:
                 raise ValueError('Invalid Anchor Type!')
 
             box[..., 2:] = anchor[..., 2:] * np.exp(box[..., 2:])
-
+            # trans (cx, cy, w, h) to (x1, y1, x2, y2)
+            box = self._trans_wh_xy(box)
+            # limit the boundary
+            box = self._limit_boundary(box)
             ret_boxes.append(box)
 
         return ret_boxes
@@ -58,7 +82,8 @@ class AnchorUtil:
                             1 + np.exp(-lmk[..., 2 * i:2 + 2 * i]))
                 else:
                     raise ValueError('Invalid Anchor Type!')
-
+            # limit the boundary
+            lmk = self._limit_boundary(lmk)
             ret_lmks.append(lmk)
 
         return ret_lmks
