@@ -11,7 +11,7 @@ class GenerateData:
 
     def __init__(self, config=None):
         self.config = config
-        self._trian_paths, self._trian_labels = self._get_path_label(self.config['train_dir'])
+        self._train_paths, self._train_labels = self._get_path_label(self.config['train_dir'])
         self._valid_paths, self._valid_labels = self._get_path_label(self.config['valid_dir'])
 
     @staticmethod
@@ -40,7 +40,7 @@ class GenerateData:
 
         return paths, labels
 
-    def _preprocess(self, image_path, trianing=True):
+    def _preprocess(self, image_path, training=True):
         image_raw = tf.io.read_file(image_path)
         # image = tf.image.decode_image(image_raw)
         image = tf.image.decode_png(image_raw)
@@ -53,20 +53,22 @@ class GenerateData:
         # image = tf.image.random_flip_left_right(image)
 
         # image = image[None, ...]
-        return image
+        scale = 1
+        return image, scale
 
-    def _preprocess_train(self, image_path, label):
-        image = self._preprocess(image_path, trianing=True)
+    def _preprocess_train(self, image_path, label, scale):
+        image, scale = self._preprocess(image_path, training=True)
 
-        return image, label
+        return image, label, scale
 
     def get_train_data(self):
-        paths, labels = self._trian_paths, self._trian_labels
+        paths, labels = self._train_paths, self._train_labels
         assert (len(paths) == len(labels))
         total = len(paths)
         labels = tf.ragged.constant(labels)
+        scales = [1] * total
 
-        train_dataset = tf.data.Dataset.from_tensor_slices((paths, labels))
+        train_dataset = tf.data.Dataset.from_tensor_slices((paths, labels, scales))
         train_dataset = train_dataset.cache()
         train_dataset = train_dataset.shuffle(total)
         train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
@@ -103,6 +105,8 @@ def main():
     for img, label in train_data.take(1):
         print(img.shape)
         print(label.shape)
+        print(label.bounding_shape())
+
         plt.imshow(img[0])
         plt.show()
         pass
