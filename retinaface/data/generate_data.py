@@ -117,7 +117,7 @@ def main():
 
     gd = GenerateData(config)
     train_data = gd.get_train_data()
-    for img, label, ori_shape, in train_data.take(1):
+    for img, label, ori_shape in train_data.take(1):
         # print(img.shape)
         # print(label.bounding_shape())
         # print(ori_shape)
