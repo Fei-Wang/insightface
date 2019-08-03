@@ -61,9 +61,52 @@ def main():
     train_data = gd.get_train_data()
     model = RetinaFace(ResNet_v1_50_FPN, num_class=2, anchor_per_scale=6)
     au = AnchorUtil(config)
-
-    for img, _ in train_data.take(1):
+    import cv2
+    for img, label, path in train_data.take(1):
         dets = predict(model, img, au, 0.6, 0.2, 100)
+
+        print(img.shape)
+        print(label.bounding_shape())
+        print(path)
+        print(dets[0].shape)
+
+        path = str(path[0].numpy(), encoding='utf-8')
+        ori_img = cv2.imread(path)
+        ori_h = ori_img.shape[0]
+        ori_w = ori_img.shape[1]
+        img = img[0].numpy()
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        boxes = label[0]
+        # boxes = dets[0][2:, :]
+        for box in boxes:
+            cv2.rectangle(img, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (0, 0, 255), 2)
+            for i in range(5):
+                cv2.circle(img, (int(box[4 + 2 * i]), int(box[4 + 2 * i + 1])), 2, (0, 255, 0), -1)
+
+            ori_box = []
+            for i in range(7):
+                x_ = box[2 * i] * max(ori_h, ori_w) / config['image_size'] - max((ori_h - ori_w) / 2, 0)
+                y_ = box[2 * i + 1] * max(ori_h, ori_w) / config['image_size'] - max((ori_w - ori_h) / 2, 0)
+                ori_box.append(x_)
+                ori_box.append(y_)
+
+            cv2.rectangle(ori_img, (int(ori_box[0]), int(ori_box[1])), (int(ori_box[2]), int(ori_box[3])), (0, 0, 255),
+                          2)
+            for i in range(5):
+                cv2.circle(ori_img, (int(ori_box[4 + 2 * i]), int(ori_box[4 + 2 * i + 1])), 2, (0, 255, 0), -1)
+
+        # fig = plt.figure()
+        # plt.subplot(211)
+        # plt.imshow(img)
+        # plt.axis('off')
+        # plt.subplot(212)
+        # plt.axis('off')
+        # plt.imshow(ori_img)
+        # plt.show()
+        cv2.imshow('img', img)
+        cv2.waitKey()
+        cv2.imshow('ori_img', ori_img)
+        cv2.waitKey()
 
 
 if __name__ == '__main__':

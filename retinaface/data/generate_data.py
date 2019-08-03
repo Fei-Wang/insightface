@@ -12,10 +12,10 @@ class GenerateData:
 
     def __init__(self, config=None):
         self.config = config
-        self._train_paths, self._train_labels, self.train_ori_shapes = self._get_path_label(self.config['train_dir'],
-                                                                                            self.config['image_size'])
-        # self._valid_paths, self._valid_labels, self.valid_ori_shapes = self._get_path_label(self.config['valid_dir'],
-        #                                                                                     self.config['image_size'])
+        self._train_paths, self._train_labels = self._get_path_label(self.config['train_dir'],
+                                                                     self.config['image_size'])
+        # self._valid_paths, self._valid_labels = self._get_path_label(self.config['valid_dir'],
+        #                                                              self.config['image_size'])
 
     @staticmethod
     def _get_path_label(train_dir, img_size):
@@ -26,7 +26,6 @@ class GenerateData:
             lines = f.readlines()
         paths = []
         labels = []
-        ori_shapes = []
         path_label_dict = {}
 
         idx_x = [0, 2, 4, 7, 10, 13, 16]
@@ -37,7 +36,6 @@ class GenerateData:
                 path = os.path.join(image_dir, line[1:].strip())
                 path_label_dict[path] = []
                 ori_shape = cv2.imread(path).shape
-                ori_shapes.append(ori_shape)
                 h = ori_shape[0]
                 w = ori_shape[1]
                 continue
@@ -62,7 +60,7 @@ class GenerateData:
             paths.append(path)
             labels.append(label)
 
-        return paths, labels, ori_shapes
+        return paths, labels
 
     def _preprocess(self, image_path, training=True):
         image_raw = tf.io.read_file(image_path)
@@ -78,18 +76,18 @@ class GenerateData:
         # image = image[None, ...]
         return image
 
-    def _preprocess_train(self, image_path, label, ori_shape):
+    def _preprocess_train(self, image_path, label):
         image = self._preprocess(image_path, training=True)
 
-        return image, label, ori_shape
+        return image, label, image_path
 
     def get_train_data(self):
-        paths, labels, ori_shapes = self._train_paths, self._train_labels, self.train_ori_shapes
-        assert (len(paths) == len(labels) == len(ori_shapes))
+        paths, labels = self._train_paths, self._train_labels
+        assert (len(paths) == len(labels))
         total = len(paths)
         labels = tf.ragged.constant(labels)
 
-        train_dataset = tf.data.Dataset.from_tensor_slices((paths, labels, ori_shapes))
+        train_dataset = tf.data.Dataset.from_tensor_slices((paths, labels))
         train_dataset = train_dataset.cache()
         train_dataset = train_dataset.shuffle(total)
         train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
@@ -117,10 +115,10 @@ def main():
 
     gd = GenerateData(config)
     train_data = gd.get_train_data()
-    for img, label, ori_shape in train_data.take(1):
-        # print(img.shape)
-        # print(label.bounding_shape())
-        # print(ori_shape)
+    for img, label, path in train_data.take(1):
+        print(img.shape)
+        print(label.bounding_shape())
+        print(path)
 
         img = cv2.cvtColor(img[0].numpy(), cv2.COLOR_BGR2RGB)
         boxes = label[0]
