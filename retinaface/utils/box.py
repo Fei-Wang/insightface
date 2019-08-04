@@ -3,7 +3,27 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import numpy as np
 
 
-def nms(dets, thresh, mode="Union"):
+def cal_iou(box, boxes):
+    x1 = boxes[:, 0]
+    y1 = boxes[:, 1]
+    x2 = boxes[:, 2]
+    y2 = boxes[:, 3]
+
+    area = (box[2] - box[0] + 1) * (box[3] - box[1] + 1)
+    areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+    xx1 = np.maximum(box[0], x1)
+    yy1 = np.maximum(box[1], y1)
+    xx2 = np.minimum(box[2], x2)
+    yy2 = np.minimum(box[3], y2)
+
+    w = np.maximum(0.0, xx2 - xx1 + 1)
+    h = np.maximum(0.0, yy2 - yy1 + 1)
+    inter = w * h
+    iou = inter / (areas + area - inter)
+    return iou
+
+
+def _nms(dets, thresh, mode="Union"):
     scores = dets[:, 0]
     x1 = dets[:, 2]
     y1 = dets[:, 3]
@@ -34,3 +54,18 @@ def nms(dets, thresh, mode="Union"):
         order = order[inds + 1]
 
     return keep
+
+
+def box_filter(preds, conf_thresh, iou_thresh, top_k):
+    dets = []
+    for i in range(preds.shape[0]):
+        # for each img of batch
+        pred = preds[i, :, :]
+        # 2. according thresh to exclude
+        idx = np.where(pred[:, 0] >= conf_thresh)
+        pred = pred[idx]
+        # 3. according nms to exclude
+        idx = _nms(pred, iou_thresh)[:top_k]
+        pred = pred[idx]
+        dets.append(pred)
+    return dets

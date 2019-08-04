@@ -5,103 +5,71 @@ import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
-import tensorflow as tf
 import yaml
 
-from retinaface.backbones.resnet_v1 import ResNet_v1_50
-from retinaface.data.generate_data import GenerateData
-from retinaface.models.models import MyModel
-from retinaface.predict import get_embeddings
+from retinaface.backbones.resnet_v1_fpn import ResNet_v1_50_FPN
+from retinaface.models.models import RetinaFace
+from retinaface.predict import predict
+from retinaface.utils.anchor import AnchorUtil
+from retinaface.utils.box import cal_iou, box_filter
 
-tf.enable_eager_execution()
 
-
-class Valid_Data:
-    def __init__(self, model, data):
+class ValidData:
+    def __init__(self, model, data, au):
         self.model = model
         self.data = data
+        self.au = au
 
-    @staticmethod
-    def _cal_cos_sim(emb1, emb2):
-        return tf.reduce_sum(emb1 * emb2, axis=-1)
+    def get_metric(self, conf_thresh, iou_thresh, top_k):
+        tps = 0
+        fps = 0
+        fns = 0
+        for imgs, labels, _ in self.data:  # for each batch
+            preds = predict(self.model, imgs, self.au)
+            # print(preds.shape)
+            dets = box_filter(preds, conf_thresh, iou_thresh, top_k)
+            for i, det in enumerate(dets):  # for each image
+                # label = labels[i]
+                label = np.array(labels[i].to_list())
+                num_truth = label.shape[0]  # truth num
+                num_pred_truth = det.shape[0]  # pred truth num
+                if num_truth == 0:
+                    tp = 0
+                    fp = num_pred_truth
+                    fn = 0
+                else:
+                    match = set()
+                    for box in det:
+                        # print(box.shape, label.shape)
+                        iou = cal_iou(box[2:], label)
+                        idx = np.argmax(iou)
+                        if iou[idx] >= 0.5:
+                            match.add(idx)
+                    tp = len(match)
+                    fp = num_pred_truth - tp
+                    fn = num_truth - tp
 
-    def _get_sim_label(self):
-        sims = None
-        labels = None
-        for image1, image2, label in self.data:
-            emb1 = get_embeddings(self.model, image1)
-            emb2 = get_embeddings(self.model, image2)
-            sim = self._cal_cos_sim(emb1, emb2)
-            if sims is None:
-                sims = sim
-            else:
-                sims = tf.concat([sims, sim], axis=0)
+                tps += tp
+                fps += fp
+                fns += fn
 
-            if labels is None:
-                labels = label
-            else:
-                labels = tf.concat([labels, label], axis=0)
+        p = tps / (tps + fps) if tps + fps != 0 else 0
+        r = tps / (tps + fns) if tps + fns != 0 else 0
+        # print(p, r)
+        return p, r
 
-        return sims, labels
-
-    @staticmethod
-    def _cal_metric(sim, label, thresh):
-        tp = tn = fp = fn = 0
-        predict = tf.greater_equal(sim, thresh)
-        for i in range(len(predict)):
-            if predict[i] and label[i]:
-                tp += 1
-            elif predict[i] and not label[i]:
-                fp += 1
-            elif not predict[i] and label[i]:
-                fn += 1
-            else:
-                tn += 1
-        acc = (tp + tn) / len(predict)
-        p = 0 if tp + fp == 0 else tp / (tp + fp)
-        r = 0 if tp + fn == 0 else tp / (tp + fn)
-        fpr = 0 if fp + tn == 0 else fp / (fp + tn)
-        return acc, p, r, fpr
-
-    def _cal_metric_fpr(self, sim, label, below_fpr=0.001):
-        acc = p = r = thresh = 0
-        for t in np.linspace(-1, 1, 100):
-            thresh = t
-            acc, p, r, fpr = self._cal_metric(sim, label, thresh)
-            if fpr <= below_fpr:
-                break
-
-        return acc, p, r, thresh
-
-    def get_metric(self, thresh=0.2, below_fpr=0.001):
-        sim, label = self._get_sim_label()
-        acc, p, r, fpr = self._cal_metric(sim, label, thresh)
-        acc_fpr, p_fpr, r_fpr, thresh_fpr = self._cal_metric_fpr(sim, label, below_fpr)
-        return acc, p, r, fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr
-
-    def draw_curve(self):
+    def draw_curve(self, iou_thresh, top_k):
         P = []
         R = []
-        TPR = []
-        FPR = []
-        sim, label = self._get_sim_label()
-        for thresh in np.linspace(-1, 1, 100):
-            acc, p, r, fpr = self._cal_metric(sim, label, thresh)
+        for thresh in np.linspace(0, 1, 100):
+            p, r = self.get_metric(thresh, iou_thresh, top_k)
             P.append(p)
             R.append(r)
-            TPR.append(r)
-            FPR.append(fpr)
 
         plt.axis([0, 1, 0, 1])
         plt.xlabel("R")
         plt.ylabel("P")
         plt.plot(R, P, color="r", linestyle="--", marker="*", linewidth=1.0)
-        plt.show()
-
-        plt.axis([0, 1, 0, 1])
-        plt.xlabel("FRP")
-        plt.ylabel("TPR")
-        plt.plot(FPR, TPR, color="r", linestyle="--", marker="*", linewidth=1.0)
         plt.show()
 
 
@@ -117,24 +85,26 @@ def parse_args(argv):
 def main():
     args = parse_args(sys.argv[1:])
     # logger.info(args)
+    from retinaface.data.generate_data import GenerateData
 
     with open(args.config_path) as cfg:
         config = yaml.load(cfg, Loader=yaml.FullLoader)
     gd = GenerateData(config)
-    valid_data = gd.get_val_data(config['valid_num'])
-    model = MyModel(ResNet_v1_50, embedding_size=config['embedding_size'])
-    import os
-    ckpt_dir = os.path.expanduser(config['ckpt_dir'])
-    ckpt = tf.train.Checkpoint(backbone=model.backbone)
-    ckpt.restore(tf.train.latest_checkpoint(ckpt_dir)).expect_partial()
-    print("Restored from {}".format(tf.train.latest_checkpoint(ckpt_dir)))
+    train_data = gd.get_train_data()
+    model = RetinaFace(ResNet_v1_50_FPN, num_class=2, anchor_per_scale=6)
+    au = AnchorUtil(config)
 
-    vd = Valid_Data(model, valid_data)
-    acc, p, r, fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr = vd.get_metric(0.2, 0.001)
-    print(acc, p, r, fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr)
-    vd.draw_curve()
+    # import os
+    # ckpt_dir = os.path.expanduser(config['ckpt_dir'])
+    # ckpt = tf.train.Checkpoint(backbone=model.backbone)
+    # ckpt.restore(tf.train.latest_checkpoint(ckpt_dir)).expect_partial()
+    # print("Restored from {}".format(tf.train.latest_checkpoint(ckpt_dir)))
+
+    vd = ValidData(model, train_data, au)
+    p, r = vd.get_metric(0.6, 0.2, 100)
+    print(p, r)
+    vd.draw_curve(0.2, 100)
 
 
 if __name__ == '__main__':
-    # logger.info("hello, insightface/recognition")
     main()

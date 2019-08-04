@@ -9,10 +9,10 @@ import yaml
 from retinaface.backbones.resnet_v1_fpn import ResNet_v1_50_FPN
 from retinaface.models.models import RetinaFace
 from retinaface.utils.anchor import AnchorUtil
-from retinaface.utils.nms import nms
+from retinaface.utils.box import box_filter
 
 
-def predict(model, images, au, conf_thresh, iou_thresh, top_k):
+def predict(model, images, au):
     classes, boxes, lmks = model(images, training=False)  # shape=[(N, 160, 160, 12),(1/2),(1/4),(1/8),(1/16)],[],[]
     # 1. according anchor update boxes and lmks
     boxes = au.decode_box(boxes)
@@ -27,18 +27,7 @@ def predict(model, images, au, conf_thresh, iou_thresh, top_k):
         pred = np.reshape(pred, (pred.shape[0], -1, pred.shape[-1]))
         preds = np.concatenate((preds, pred), axis=1) if preds is not None else pred
 
-    dets = []
-    for i in range(preds.shape[0]):
-        # for each img of batch
-        pred = preds[i, :, :]
-        # 2. according thresh to exclude
-        idx = np.where(pred[:, 0] >= conf_thresh)
-        pred = pred[idx]
-        # 3. according nms to exclude
-        idx = nms(pred, iou_thresh)[:top_k]
-        pred = pred[idx]
-        dets.append(pred)
-    return dets
+    return preds
 
 
 def parse_args(argv):
@@ -63,7 +52,8 @@ def main():
     au = AnchorUtil(config)
     import cv2
     for img, label, path in train_data.take(1):
-        dets = predict(model, img, au, 0.6, 0.2, 100)
+        preds = predict(model, img, au)
+        dets = box_filter(preds, 0.6, 0.2, 100)
 
         print(img.shape)
         print(label.bounding_shape())
