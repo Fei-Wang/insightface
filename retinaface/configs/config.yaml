@@ -4,6 +4,10 @@ backbone:
 image_size: 640
 num_class: 2
 
+lambda1: 0.25
+lambda2: 0.1
+lambda3: 0.01
+
 # anchor setting
 use_anchors: True
 anchor_type: 'faster-rcnn'   # yolo or faster-rcnn
@@ -17,9 +21,10 @@ iou_thresh: 0.2
 top_k: 1000     # just choose top k, if is neg, for example -1 resprent all - 1
 
 # run params
-batch_size: 4
-
-
+batch_size: 16
+epoch_num: 100
+optimizer: 'ADAM'    # ADADELTA, ADAGRAD, ADAM, ADAMAX, FTRL, NADAM, RMSPROP, SGD
+learning_rate: 0.0001
 # paths
 
 train_dir: '~/data/insightface/retinaface/train'
