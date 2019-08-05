@@ -18,7 +18,7 @@ handlers:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
     formatter: simple
-    filename: C:/Users/kc/logs/insightface/recognition.log
+    filename: C:/Users/fei/logs/insightface/recognition.log
     maxBytes: 1000000
     backupCount: 10
     encoding: "utf8"
