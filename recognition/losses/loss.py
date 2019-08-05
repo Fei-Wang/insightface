@@ -14,6 +14,15 @@ def softmax_loss(dense, labels):
     return loss
 
 
+def center_loss(features, label, centers, alpha):
+    centers_batch = tf.gather(centers, label)
+    diff = (1 - alpha) * (centers_batch - features)
+    centers = tf.compat.v1.scatter_sub(centers, label, diff)
+    # centers = tf.tensor_scatter_nd_sub(centers, label, diff)
+    loss = tf.reduce_mean(tf.square(features - centers_batch))
+    return loss, centers
+
+
 def arcface_loss(x, normx_cos, labels, m1, m2, m3, s):
     norm_x = tf.norm(x, axis=1, keepdims=True)
     cos_theta = normx_cos / norm_x

@@ -34,7 +34,7 @@ class GenerateData:
             labels.append([id_dict[i]] * len(fns))
         return paths, labels
 
-    def _preprocess(self, image_path, trianing=True):
+    def _preprocess(self, image_path, training=True):
         image_raw = tf.io.read_file(image_path)
         # image = tf.image.decode_image(image_raw)
         image = tf.image.decode_png(image_raw)
@@ -50,20 +50,20 @@ class GenerateData:
         return image
 
     def _preprocess_train(self, image_path, label):
-        image = self._preprocess(image_path, trianing=True)
+        image = self._preprocess(image_path, training=True)
 
         return image, label
 
     def _preprocess_train_triplet(self, image_path1, image_path2, image_path3):
-        image1 = self._preprocess(image_path1, trianing=True)
-        image2 = self._preprocess(image_path2, trianing=True)
-        image3 = self._preprocess(image_path3, trianing=True)
+        image1 = self._preprocess(image_path1, training=True)
+        image2 = self._preprocess(image_path2, training=True)
+        image3 = self._preprocess(image_path3, training=True)
 
         return image1, image2, image3
 
     def _preprocess_val(self, image_path1, image_path2, label):
-        image1 = self._preprocess(image_path1, trianing=False)
-        image2 = self._preprocess(image_path2, trianing=False)
+        image1 = self._preprocess(image_path1, training=False)
+        image2 = self._preprocess(image_path2, training=False)
 
         return image1, image2, label
 
