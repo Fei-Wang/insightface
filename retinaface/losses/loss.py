@@ -42,7 +42,7 @@ def _cal_loc_smooth_l1_loss(label, pred):
 
 
 def _cal_pos_anchor_loss(gt, anchor, img_size=640, lambda1=0.25, lambda2=0.1, lambda3=0.01):
-    cls_loss = -tf.log(anchor[0])
+    cls_loss = -tf.math.log(anchor[0])
     norm_gt = gt / img_size
     norm_anchor = anchor[2:] / img_size
     # the diff between loss(x,y,w,h) and loss(x1,y1,x2,y2) is small, and change from one to another is easy
@@ -55,26 +55,26 @@ def _cal_pos_anchor_loss(gt, anchor, img_size=640, lambda1=0.25, lambda2=0.1, la
 
 
 def _cal_loss_per_image_per_scale(pred, labels, stride, img_size=640, lambda1=0.25, lambda2=0.1, lambda3=0.01):
-    losses = -np.log(pred[..., 1])
+    losses = -tf.math.log(pred[..., 1])
     label_dict = {}
     for label in labels:
         # for each gt
-        label = label.numpy()
+        # label = label.numpy()
         t_x = int((label[0] + label[2]) / 2 / stride)
         t_y = int((label[1] + label[3]) / 2 / stride)
 
-        label = label.reshape((1, -1))
+        label = tf.reshape(label, (1, -1))
         label_dict[(t_x, t_y)] = tf.concat((label_dict[(t_x, t_y)], label), axis=0) \
             if (t_x, t_y) in label_dict else label
 
-    for loc, label in label_dict.items():
-        idxes = _match_gt_anchor(label, pred[loc[0], loc[1]])
-        for i, idx in enumerate(idxes):
-            if idx >= 0:
-                # change anchor (loc[0], loc[1], idx) loss value
-                losses[loc[0], loc[1], int(idx)] = _cal_pos_anchor_loss(label[i], pred[loc[0], loc[1], int(idx)],
-                                                                        img_size=img_size, lambda1=lambda1,
-                                                                        lambda2=lambda2, lambda3=lambda3)
+    # for loc, label in label_dict.items():
+    #     idxes = _match_gt_anchor(label, pred[loc[0], loc[1]])
+    #     for i, idx in enumerate(idxes):
+    #         if idx >= 0:
+    #             # change anchor (loc[0], loc[1], idx) loss value
+    #             losses[loc[0], loc[1], int(idx)] = _cal_pos_anchor_loss(label[i], pred[loc[0], loc[1], int(idx)],
+    #                                                                     img_size=img_size, lambda1=lambda1,
+    #                                                                     lambda2=lambda2, lambda3=lambda3)
 
     loss = tf.reduce_mean(losses)
     # print(pred.shape, labels.shape, labels[0].shape)
