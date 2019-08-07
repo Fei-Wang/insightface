@@ -12,7 +12,7 @@ import yaml
 
 from retinaface.backbones.resnet_v1_fpn import ResNet_v1_50_FPN
 from retinaface.data.generate_data import GenerateData
-from retinaface.losses.loss import cal_loss
+from retinaface.losses.loss import LossUtil
 from retinaface.models.models import RetinaFace
 from retinaface.utils.anchor import AnchorUtil
 
@@ -39,6 +39,7 @@ class Trainer:
         anchor_per_scale = len(config['base_anchors'][0]) * len(config['anchor_ratios'])
         self.model = RetinaFace(ResNet_v1_50_FPN, num_class=config['num_class'], anchor_per_scale=anchor_per_scale)
         self.au = AnchorUtil(config)
+        self.lu = LossUtil(config)
         self.feat_strides = config['feat_strides']
         self.image_size = config['image_size']
         self.lambda1 = config['lambda1']
@@ -96,29 +97,33 @@ class Trainer:
         self.valid_summary_writer = tf.compat.v2.summary.create_file_writer(valid_log_dir)
 
     # @tf.function
-    def _train_step(self, img, label, img_size=640, lambda1=0.25, lambda2=0.1, lambda3=0.01):
+    def _train_step(self, img, label):
         with tf.GradientTape(persistent=False) as tape:
             classes, boxes, lmks = self.model(img, training=True)
             boxes = self.au.decode_box(boxes)
             lmks = self.au.decode_lmk(lmks)
-
-            loss = cal_loss(classes, boxes, lmks, label, self.feat_strides, img_size=img_size, lambda1=lambda1,
-                            lambda2=lambda2, lambda3=lambda3)
-            print(loss, type(loss))
+            preds = [tf.concat((classes[i], boxes[i], lmks[i]), axis=-1) for i in range(len(classes))]
+            loss, cls_loss, box_loss, lmk_loss, pix_losss = self.lu.cal_loss(preds, label)
         gradients = tape.gradient(loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
 
-        return loss
+        return loss, cls_loss, box_loss, lmk_loss, pix_losss
 
     def train(self):
         for epoch in range(self.epoch_num):
             start = time.time()
 
             for step, (input_image, target, _) in enumerate(self.train_data):
-                loss = self._train_step(input_image, target, self.image_size, self.lambda1, self.lambda2, self.lambda3)
+                loss, cls_loss, box_loss, lmk_loss, pix_losss = self._train_step(input_image, target)
                 with self.train_summary_writer.as_default():
                     tf.compat.v2.summary.scalar('loss', loss, step=step)
-                print('epoch: {}, step: {}, loss = {}'.format(epoch, step, loss))
+                    tf.compat.v2.summary.scalar('cls_loss', cls_loss, step=step)
+                    tf.compat.v2.summary.scalar('box_loss', box_loss, step=step)
+                    tf.compat.v2.summary.scalar('lmk_loss', lmk_loss, step=step)
+                    tf.compat.v2.summary.scalar('pix_losss', pix_losss, step=step)
+
+                print('epoch: {}, step: {}, loss = {}, cls_loss = {}, box_loss = {}, lmk_loss = {}, pix_loss = {}'
+                      .format(epoch, step, loss, cls_loss, box_loss, lmk_loss, pix_losss))
 
             # valid
             # acc, p, r, fpr, acc_fpr, p_fpr, r_fpr, thresh_fpr = self.vd.get_metric(self.thresh, self.below_fpr)
