@@ -27,17 +27,19 @@ class GenerateData:
         paths = []
         labels = []
         path_label_dict = {}
-
         idx_x = [0, 2, 4, 7, 10, 13, 16]
         idx_y = [idx_x[i] + 1 for i in range(len(idx_x))]
         for line in lines:
             line = line.strip()
             if line.startswith('#'):
-                path = os.path.join(image_dir, line[1:].strip())
+                components = line.split(' ')
+                path = os.path.join(image_dir, components[1])
                 path_label_dict[path] = []
-                ori_shape = cv2.imread(path).shape
-                h = ori_shape[0]
-                w = ori_shape[1]
+                # ori_shape = cv2.imread(path).shape
+                # h = ori_shape[0]
+                # w = ori_shape[1]
+                w = int(components[2])
+                h = int(components[3])
                 continue
 
             components = line.split(' ')
